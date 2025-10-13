@@ -13,10 +13,10 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/store/useAuthStore';
 import { signUpSchema, type SignUpFormData } from '@/lib/validations/auth';
@@ -27,7 +27,6 @@ import { signUpSchema, type SignUpFormData } from '@/lib/validations/auth';
  * @returns サインアップフォーム
  */
 export function SignUpForm() {
-  const router = useRouter();
   const signUp = useAuthStore((state) => state.signUp);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,9 +51,16 @@ export function SignUpForm() {
     try {
       setIsLoading(true);
       await signUp(data.email, data.password, data.name);
-      toast.success('アカウントを作成しました');
-      router.push('/');
-      router.refresh();
+      
+      // アカウント作成成功の通知
+      toast.success('アカウントを作成しました', {
+        description: 'メールアドレスに認証リンクを送信しました。メールを確認して認証を完了してください。',
+        duration: 8000,
+      });
+      
+      // ログイン前の状態に戻す（メール認証が必要な場合）
+      // router.push('/');
+      // router.refresh();
     } catch (error) {
       console.error('サインアップエラー:', error);
       toast.error(
@@ -97,9 +103,8 @@ export function SignUpForm() {
 
       <div className="space-y-2">
         <Label htmlFor="password">パスワード</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           placeholder="••••••"
           {...register('password')}
           disabled={isLoading}
@@ -111,9 +116,8 @@ export function SignUpForm() {
 
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">パスワード（確認）</Label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
-          type="password"
           placeholder="••••••"
           {...register('confirmPassword')}
           disabled={isLoading}
