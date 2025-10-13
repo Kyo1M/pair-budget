@@ -12,23 +12,23 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
 ## タスク
 
 ### 1. Supabase プロジェクトの作成 (PB-00)
-- [ ] Supabase にアクセスして新規プロジェクトを作成
-- [ ] プロジェクト名: `pair-budget-mvp`（または任意の名前）
-- [ ] リージョン選択: Tokyo (ap-northeast-1) 推奨
-- [ ] データベースパスワードを安全に保存
-- [ ] Project Settings から以下の情報を収集:
+- [x] Supabase にアクセスして新規プロジェクトを作成（ユーザー対応済み）
+- [x] プロジェクト名: `pair-budget-mvp`（または任意の名前）
+- [x] リージョン選択: Tokyo (ap-northeast-1) 推奨
+- [x] データベースパスワードを安全に保存
+- [ ] Project Settings から以下の情報を収集:（ユーザーが対応予定）
   - [ ] `NEXT_PUBLIC_SUPABASE_URL`
   - [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - [ ] `SUPABASE_SERVICE_ROLE_KEY` (Settings > API > service_role key)
 
 ### 2. pnpm workspace のセットアップ (PB-02)
-- [ ] ルートに `pnpm-workspace.yaml` を作成
+- [x] ルートに `pnpm-workspace.yaml` を作成
   ```yaml
   packages:
     - 'apps/*'
     - 'packages/*'
   ```
-- [ ] ルート `package.json` にワークスペーススクリプトを追加
+- [x] ルート `package.json` にワークスペーススクリプトを追加
   ```json
   {
     "name": "pair-budget",
@@ -42,13 +42,13 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
     }
   }
   ```
-- [ ] `.nvmrc` ファイルを作成（Node.js 20.x）
+- [x] `.nvmrc` ファイルを作成（Node.js 20.x）
   ```
   20
   ```
 
 ### 3. Next.js プロジェクトの作成 (PB-01)
-- [ ] 以下のコマンドで Next.js アプリを作成:
+- [x] 以下のコマンドで Next.js アプリを作成:
   ```bash
   pnpm dlx create-next-app@latest apps/web \
     --typescript \
@@ -58,14 +58,14 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
     --app \
     --import-alias "@/*"
   ```
-- [ ] `apps/web/.gitkeep` を削除（不要になるため）
-- [ ] ESLint と Prettier の設定を確認・調整
-- [ ] `apps/web/.env.local` を作成（gitignore済み）
+- [x] `apps/web/.gitkeep` を削除（不要になるため）
+- [x] ESLint と Prettier の設定を確認・調整
+- [ ] `apps/web/.env.local` を作成（gitignore済み）（ユーザーが対応予定）
   ```
   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
   ```
-- [ ] `apps/web/.env.example` を作成（コミット用）
+- [x] `apps/web/.env.example` を作成（コミット用）
   ```
   NEXT_PUBLIC_SUPABASE_URL=
   NEXT_PUBLIC_SUPABASE_ANON_KEY=
@@ -113,12 +113,12 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
 - [ ] Supabase Studio でテーブルが作成されているか確認
 
 ### 6. shadcn/ui のセットアップ
-- [ ] shadcn/ui を初期化
+- [x] shadcn/ui を初期化
   ```bash
   cd apps/web
   pnpm dlx shadcn-ui@latest init
   ```
-- [ ] 必要なコンポーネントをインストール
+- [x] 必要なコンポーネントをインストール
   ```bash
   pnpm dlx shadcn-ui@latest add button
   pnpm dlx shadcn-ui@latest add input
@@ -129,17 +129,17 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
   ```
 
 ### 7. 基本パッケージのインストール
-- [ ] Supabase クライアントライブラリをインストール
+- [x] Supabase クライアントライブラリをインストール（@supabase/ssr を使用）
   ```bash
   cd apps/web
   pnpm add @supabase/supabase-js
-  pnpm add @supabase/auth-helpers-nextjs
+  pnpm add @supabase/ssr
   ```
-- [ ] Zustand をインストール
+- [x] Zustand をインストール
   ```bash
   pnpm add zustand
   ```
-- [ ] react-hook-form と zod をインストール
+- [x] react-hook-form と zod をインストール
   ```bash
   pnpm add react-hook-form @hookform/resolvers zod
   ```
@@ -154,6 +154,8 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
   ```bash
   pnpm lint
   ```
+- [x] Lint が通ることを確認
+- [x] Type check が通ることを確認
 
 ## 関連ファイル
 - `pnpm-workspace.yaml`
@@ -167,4 +169,8 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
 
 ## 更新履歴
 - 2025-10-13: チケット作成
+- 2025-10-13: pnpm workspace、Next.js、shadcn/ui、基本パッケージのセットアップ完了
+  - @supabase/ssr を使用（@supabase/auth-helpers-nextjs は非推奨のため）
+  - sonner を使用（toast は非推奨のため）
+  - Supabase環境変数の設定はユーザーが対応予定
 

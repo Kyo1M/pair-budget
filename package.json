@@ -1,0 +1,23 @@
+{
+  "name": "pair-budget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PairBudget - 夫婦のための家計管理アプリ",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "start": "pnpm --filter web start",
+    "lint": "pnpm --filter web lint",
+    "test": "pnpm --filter web test",
+    "type-check": "pnpm --filter web type-check"
+  },
+  "keywords": [
+    "budget",
+    "household",
+    "nextjs",
+    "supabase"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+
