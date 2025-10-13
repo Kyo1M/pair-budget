@@ -72,7 +72,7 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
   ```
 
 ### 4. Supabase CLI のセットアップ (PB-03)
-- [ ] Supabase CLI をインストール
+- [x] Supabase CLI をインストール（既にインストール済み）
   ```bash
   brew install supabase/tap/supabase
   ```
@@ -95,14 +95,14 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
   ```bash
   supabase login
   ```
-- [ ] プロジェクトをリンク
+- [x] プロジェクトをリンク
   ```bash
   supabase link --project-ref your_project_ref
   ```
 
 ### 5. Supabase スキーマの適用
-- [ ] `supabase/sql/supabase-schema.sql` の内容を確認
-- [ ] Dry run でスキーマを確認
+- [x] `supabase/sql/supabase-schema.sql` の内容を確認
+- [x] Supabase Studio SQL Editorでスキーマを実行（CLI接続エラーのため）
   ```bash
   supabase db push --config supabase/config.toml --dry-run
   ```
@@ -110,7 +110,7 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
   ```bash
   supabase db push --config supabase/config.toml
   ```
-- [ ] Supabase Studio でテーブルが作成されているか確認
+- [x] Supabase Studio でテーブルが作成されているか確認
 
 ### 6. shadcn/ui のセットアップ
 - [x] shadcn/ui を初期化
@@ -145,15 +145,11 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
   ```
 
 ### 8. 動作確認
-- [ ] 開発サーバーを起動
+- [x] 開発サーバーを起動
   ```bash
   pnpm dev
   ```
-- [ ] http://localhost:3000 でアクセスできることを確認
-- [ ] Lint が通ることを確認
-  ```bash
-  pnpm lint
-  ```
+- [ ] http://localhost:3000 でアクセスできることを確認（確認中）
 - [x] Lint が通ることを確認
 - [x] Type check が通ることを確認
 
@@ -172,5 +168,10 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
 - 2025-10-13: pnpm workspace、Next.js、shadcn/ui、基本パッケージのセットアップ完了
   - @supabase/ssr を使用（@supabase/auth-helpers-nextjs は非推奨のため）
   - sonner を使用（toast は非推奨のため）
-  - Supabase環境変数の設定はユーザーが対応予定
+  - Supabase環境変数の設定はユーザーが対応済み
+- 2025-10-13: Supabaseプロジェクトのリンクとスキーマ適用完了
+  - supabase init でconfig.toml作成
+  - supabase link でプロジェクトをリンク
+  - CLI接続エラーのため、Supabase Studio SQL Editorでスキーマを直接実行
+  - 全テーブル、関数、RLSポリシーの作成完了
 
