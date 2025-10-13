@@ -8,12 +8,13 @@
    - Supabase Auth (メール + パスワード)。
    - ログイン後はホーム画面へ遷移。
 2. **世帯の作成または参加**
-   - ホームに「世帯を作成」「世帯に招待コードで参加」の導線。
-   - MVP ではメールアドレス入力による招待のみ実装。招待されたユーザーはメール内の情報を元にログインし、自動でメンバー化される。
+   - ホームに「世帯を作成」「世帯に参加コードで参加」の導線。
+   - オーナーが 1 回限りの参加コードを発行し、相手に共有。参加希望者はコードを入力して世帯に参加する。
 3. **取引の記録**
    - ホーム画面右下の FAB からモーダルを開き、支出・収入・立替のいずれかを入力。
    - 入力必須: 金額、日付 (デフォルト今日)、カテゴリ、メモ (任意)。
    - 支出の場合は支払者と負担割合 (当面は 50/50 固定)。
+   - 立替の場合は「家庭全体への立替」または「特定の相手への立替」を選択可能。
 4. **ダッシュボード**
    - 月次サマリー (収入 / 支出 / 差額)。
    - 最近の取引 (最新 5 件)。
@@ -28,10 +29,11 @@
 | 認証 | Supabase Auth によるメール / パスワード認証 | `/auth` |
 | ホーム | 未世帯なら作成・参加導線、既世帯ならダッシュボードと FAB | `/` |
 | 世帯作成 | household 名称入力のみ (オーナー = 作成ユーザー) | モーダル |
-| メンバー招待 | メールアドレスを入力して household_members に追加 | モーダル |
+| 招待コード発行 | 世帯オーナーが 1 回限りの参加コードを生成・共有 | モーダル |
+| コード参加 | 共有されたコードを入力して世帯に参加 | モーダル |
 | 取引登録 | 支出 / 収入 / 立替 (種別切替) | モーダル |
 | 取引一覧 | 最近の取引、カテゴリ・金額の表示 | ホーム |
-| 立替残高 | household_members テーブルに保持するバランス集計 | ホーム |
+| 立替残高 | RPC関数で取引と精算から算出したバランス集計 | ホーム |
 | 精算 | 支払い金額を記録し、残高を調整 | モーダル |
 
 ## 3. Supabase データモデル (概要)
@@ -40,10 +42,10 @@
 |----------|------|--------|
 | `profiles` | Supabase auth.users の拡張 | `id` (UUID), `email`, `name`, `created_at` |
 | `households` | 世帯本体 | `id`, `name`, `owner_user_id`, `created_at` |
-| `household_members` | 世帯とユーザーの紐付け | `id`, `household_id`, `user_id`, `role`, `balance_amount` |
-| `transactions` | 収支・立替 | `id`, `household_id`, `type`, `amount`, `category`, `occurred_on`, `payer_user_id`, `note` |
+| `household_members` | 世帯とユーザーの紐付け | `id`, `household_id`, `user_id`, `role`, `joined_at` |
+| `transactions` | 収支・立替 | `id`, `household_id`, `type`, `amount`, `category`, `occurred_on`, `payer_user_id`, `advance_to_user_id`, `note` |
 | `settlements` | 立替精算 | `id`, `household_id`, `from_user_id`, `to_user_id`, `amount`, `settled_on`, `note` |
-| `invites` (任意) | 将来の拡張用に招待状態を保持 | `id`, `household_id`, `email`, `status`, `token` |
+| `household_join_codes` | 参加コードの管理 | `id`, `household_id`, `code`, `expires_at`, `used_by`, `used_at`, `created_by`, `status` |
 
 RLS は `is_household_member(household_id)` / `is_household_owner(household_id)` で判定する。
 
@@ -60,7 +62,8 @@ RLS は `is_household_member(household_id)` / `is_household_owner(household_id)`
   - 右下 FAB: 「支出」「収入」「精算」などのクイックアクション。
 - **モーダル**
   - 世帯作成モーダル
-  - 招待モーダル
+  - 参加コード発行モーダル
+  - 参加コード入力モーダル
   - 取引登録モーダル
   - 精算モーダル
 
@@ -75,14 +78,31 @@ RLS は `is_household_member(household_id)` / `is_household_owner(household_id)`
 
 1. Supabase スキーマ定義 (SQL) と RLS ポリシー。
 2. Next.js 認証ラッパーと未世帯時のセットアップ導線。
-3. 世帯作成 / 招待 UI と API 呼び出し。
+3. 世帯作成 / 招待コード UI と API 呼び出し。
 4. 取引登録 + ダッシュボードのサマリー表示。
 5. 精算登録と立替残高の更新ロジック。
 6. スタイル調整とエラーハンドリング。
 
-## 7. 今後の拡張余地
+## 7. カテゴリ定義 (MVP)
 
-- 招待リンク発行 (トークン式)。
+MVP時点では以下の固定カテゴリをアプリ側で定義する：
+- 食費
+- 外食費
+- 日用品
+- 医療費
+- 家具・家電
+- 子ども
+- その他
+
+## 8. 制約事項 (MVP)
+
+- 1ユーザーは1世帯のみに所属可能（UI制御）
+- 参加コードの有効期限は24時間固定
+
+## 9. 今後の拡張余地
+
+- メール招待やリンク発行などコード以外の参加手段追加。
 - 複数世帯の切り替え。
 - カテゴリのカスタマイズ。
+- 立替の負担割合カスタマイズ。
 - iOS アプリとの同期。

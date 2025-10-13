@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- 2. Helper ENUM / Types
 ----------------------------
 
-CREATE TYPE public.transaction_type AS ENUM ('expense', 'income', 'transfer');
+CREATE TYPE public.transaction_type AS ENUM ('expense', 'income', 'advance');
 
 ----------------------------
 -- 3. Profiles
@@ -58,30 +58,28 @@ CREATE TABLE IF NOT EXISTS public.household_members (
   household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('owner', 'member')),
-  balance_amount NUMERIC(12,2) DEFAULT 0,
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE (household_id, user_id)
 );
 
 ALTER TABLE public.household_members ENABLE ROW LEVEL SECURITY;
 
-----------------------------
--- 6. Invites (optional)
+-- 6. Household Join Codes
 ----------------------------
 
-CREATE TABLE IF NOT EXISTS public.household_invites (
+CREATE TABLE IF NOT EXISTS public.household_join_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  invited_by UUID NOT NULL REFERENCES auth.users(id),
-  token TEXT NOT NULL UNIQUE,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'revoked')),
+  code TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'used', 'expired', 'revoked')),
   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE (household_id, email)
+  created_by UUID NOT NULL REFERENCES auth.users(id),
+  used_by UUID REFERENCES auth.users(id),
+  used_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-ALTER TABLE public.household_invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.household_join_codes ENABLE ROW LEVEL SECURITY;
 
 ----------------------------
 -- 7. Transactions
@@ -96,6 +94,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   category TEXT,
   note TEXT,
   payer_user_id UUID REFERENCES auth.users(id),
+  advance_to_user_id UUID REFERENCES auth.users(id),
   created_by UUID NOT NULL REFERENCES auth.users(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -160,6 +159,82 @@ $$;
 
 ALTER FUNCTION public.is_household_owner(UUID) OWNER TO postgres;
 GRANT EXECUTE ON FUNCTION public.is_household_owner(UUID) TO authenticated, service_role;
+
+-- 世帯の立替残高を計算するRPC関数
+CREATE OR REPLACE FUNCTION public.get_household_balances(target_household UUID)
+RETURNS TABLE (
+  user_id UUID,
+  user_name TEXT,
+  balance_amount NUMERIC
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  WITH advance_payments AS (
+    -- 立替支払い（自分が立て替えた分）
+    SELECT 
+      t.payer_user_id AS user_id,
+      COALESCE(SUM(t.amount), 0) AS paid_amount
+    FROM public.transactions t
+    WHERE t.household_id = target_household
+      AND t.type = 'advance'
+      AND t.payer_user_id IS NOT NULL
+    GROUP BY t.payer_user_id
+  ),
+  advance_debts AS (
+    -- 立替債務（相手に立て替えてもらった分）
+    SELECT 
+      t.advance_to_user_id AS user_id,
+      COALESCE(SUM(t.amount), 0) AS debt_amount
+    FROM public.transactions t
+    WHERE t.household_id = target_household
+      AND t.type = 'advance'
+      AND t.advance_to_user_id IS NOT NULL
+    GROUP BY t.advance_to_user_id
+  ),
+  settlement_paid AS (
+    -- 精算で支払った分
+    SELECT 
+      s.from_user_id AS user_id,
+      COALESCE(SUM(s.amount), 0) AS paid_amount
+    FROM public.settlements s
+    WHERE s.household_id = target_household
+    GROUP BY s.from_user_id
+  ),
+  settlement_received AS (
+    -- 精算で受け取った分
+    SELECT 
+      s.to_user_id AS user_id,
+      COALESCE(SUM(s.amount), 0) AS received_amount
+    FROM public.settlements s
+    WHERE s.household_id = target_household
+    GROUP BY s.to_user_id
+  )
+  SELECT 
+    hm.user_id,
+    p.name AS user_name,
+    (
+      COALESCE(ap.paid_amount, 0) - 
+      COALESCE(ad.debt_amount, 0) - 
+      COALESCE(sp.paid_amount, 0) + 
+      COALESCE(sr.received_amount, 0)
+    ) AS balance_amount
+  FROM public.household_members hm
+  LEFT JOIN public.profiles p ON p.id = hm.user_id
+  LEFT JOIN advance_payments ap ON ap.user_id = hm.user_id
+  LEFT JOIN advance_debts ad ON ad.user_id = hm.user_id
+  LEFT JOIN settlement_paid sp ON sp.user_id = hm.user_id
+  LEFT JOIN settlement_received sr ON sr.user_id = hm.user_id
+  WHERE hm.household_id = target_household
+  ORDER BY hm.joined_at;
+END;
+$$;
+
+ALTER FUNCTION public.get_household_balances(UUID) OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION public.get_household_balances(UUID) TO authenticated, service_role;
 
 ----------------------------
 -- 10. Triggers
@@ -252,6 +327,7 @@ DROP POLICY IF EXISTS "Household owners can add members" ON public.household_mem
 CREATE POLICY "Household owners can add members" ON public.household_members
   FOR INSERT WITH CHECK (
     public.is_household_owner(household_members.household_id)
+    OR auth.uid() = household_members.user_id
   );
 
 DROP POLICY IF EXISTS "Household owners can update members" ON public.household_members;
@@ -266,20 +342,22 @@ CREATE POLICY "Household owners can remove members" ON public.household_members
     public.is_household_owner(household_members.household_id)
   );
 
--- household_invites
-DROP POLICY IF EXISTS "Household owners manage invites" ON public.household_invites;
-CREATE POLICY "Household owners manage invites" ON public.household_invites
+-- household_join_codes
+DROP POLICY IF EXISTS "Household owners manage join codes" ON public.household_join_codes;
+CREATE POLICY "Household owners manage join codes" ON public.household_join_codes
   USING (
-    public.is_household_owner(household_invites.household_id)
+    public.is_household_owner(household_join_codes.household_id)
   )
   WITH CHECK (
-    public.is_household_owner(household_invites.household_id)
+    public.is_household_owner(household_join_codes.household_id)
   );
 
-DROP POLICY IF EXISTS "Invitees can view invite" ON public.household_invites;
-CREATE POLICY "Invitees can view invite" ON public.household_invites
+DROP POLICY IF EXISTS "Authenticated users can use active join codes" ON public.household_join_codes;
+CREATE POLICY "Authenticated users can use active join codes" ON public.household_join_codes
   FOR SELECT USING (
-    auth.uid() IS NOT NULL AND lower(household_invites.email) = lower(auth.jwt() ->> 'email')
+    auth.uid() IS NOT NULL
+    AND household_join_codes.status = 'active'
+    AND household_join_codes.expires_at > NOW()
   );
 
 -- transactions
@@ -341,7 +419,8 @@ CREATE INDEX IF NOT EXISTS idx_transactions_created_by ON public.transactions (c
 CREATE INDEX IF NOT EXISTS idx_settlements_household ON public.settlements (household_id, settled_on DESC);
 CREATE INDEX IF NOT EXISTS idx_settlements_participants ON public.settlements (from_user_id, to_user_id);
 
-CREATE INDEX IF NOT EXISTS idx_invites_email ON public.household_invites (lower(email));
+CREATE INDEX IF NOT EXISTS idx_join_codes_household ON public.household_join_codes (household_id);
+CREATE INDEX IF NOT EXISTS idx_join_codes_status ON public.household_join_codes (status, expires_at);
 
 ----------------------------
 -- END
