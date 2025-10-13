@@ -37,41 +37,41 @@ Supabase クライアント、AuthProvider、Zustand ストア、認証画面の
   - RootLayout でラップ
 
 ### 4. 認証ページの実装 (PB-13)
-- [ ] `apps/web/src/app/auth/page.tsx` を作成
+- [x] `apps/web/src/app/auth/page.tsx` を作成
   - サインアップ/ログインフォームを実装
-  - タブまたはトグルで切り替え
-- [ ] `apps/web/src/components/auth/SignInForm.tsx` を作成
+  - Tabsコンポーネントで切り替え
+- [x] `apps/web/src/components/auth/SignInForm.tsx` を作成
   - メールアドレスとパスワード入力
   - react-hook-form + zod でバリデーション
   - エラー表示
-- [ ] `apps/web/src/components/auth/SignUpForm.tsx` を作成
+- [x] `apps/web/src/components/auth/SignUpForm.tsx` を作成
   - メールアドレス、パスワード、名前の入力
   - パスワード確認フィールド
   - react-hook-form + zod でバリデーション
 
 ### 5. バリデーションスキーマの作成 (PB-13)
-- [ ] `apps/web/src/lib/validations/auth.ts` を作成
+- [x] `apps/web/src/lib/validations/auth.ts` を作成
   - signInSchema: メールとパスワード
   - signUpSchema: メール、パスワード、パスワード確認、名前
 
 ### 6. リダイレクト処理の実装
-- [ ] Middleware の作成 `apps/web/src/middleware.ts`
+- [x] Middleware の作成 `apps/web/src/middleware.ts`
   - 未認証時は `/auth` にリダイレクト
   - 認証済みで `/auth` にアクセスした場合は `/` にリダイレクト
-- [ ] 認証成功後のリダイレクト処理を実装
+- [x] 認証成功後のリダイレクト処理を実装
 
 ### 7. エラーハンドリング
-- [ ] エラーメッセージの日本語化
-- [ ] エラー表示コンポーネント `apps/web/src/components/ui/error-message.tsx` を作成
-- [ ] Supabase エラーの適切なハンドリング
+- [x] エラーメッセージの日本語化（バリデーションメッセージ）
+- [x] sonnerによるトースト通知で対応
+- [x] Supabase エラーの適切なハンドリング
 
 ### 8. テスト・動作確認
-- [ ] サインアップが正常に動作することを確認
+- [ ] サインアップが正常に動作することを確認（次のステップで実施）
   - ユーザー作成
   - profiles テーブルへの自動挿入（trigger）
-- [ ] ログインが正常に動作することを確認
-- [ ] ログアウトが正常に動作することを確認
-- [ ] セッション永続化が動作することを確認
+- [ ] ログインが正常に動作することを確認（次のステップで実施）
+- [ ] ログアウトが正常に動作することを確認（次のステップで実施）
+- [ ] セッション永続化が動作することを確認（次のステップで実施）
   - ページリロード後もログイン状態が保持される
 
 ## 関連ファイル
@@ -96,4 +96,11 @@ Supabase クライアント、AuthProvider、Zustand ストア、認証画面の
   - Zustand による認証状態管理
   - RootLayoutへのAuthProvider統合
   - Toasterコンポーネント追加
+- 2025-10-13: 認証ページ、フォーム、Middlewareの実装完了
+  - バリデーションスキーマ（Zod）
+  - サインイン・サインアップフォーム（react-hook-form）
+  - 認証ページ（Tabsで切り替え）
+  - Middleware（認証チェック・リダイレクト）
+  - エラーハンドリング（sonner）
+  - 実装完了、次は動作確認
 
