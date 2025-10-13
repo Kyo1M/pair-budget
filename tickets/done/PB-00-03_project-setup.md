@@ -149,7 +149,7 @@ Supabaseプロジェクトの作成、Next.js 14 (App Router) のセットアッ
   ```bash
   pnpm dev
   ```
-- [ ] http://localhost:3000 でアクセスできることを確認（確認中）
+- [x] http://localhost:3000 でアクセスできることを確認
 - [x] Lint が通ることを確認
 - [x] Type check が通ることを確認
 
