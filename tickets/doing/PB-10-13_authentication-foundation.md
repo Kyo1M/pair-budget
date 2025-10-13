@@ -11,29 +11,29 @@ Supabase クライアント、AuthProvider、Zustand ストア、認証画面の
 ## タスク
 
 ### 1. Supabase クライアントの実装 (PB-11)
-- [ ] `apps/web/src/lib/supabase/client.ts` を作成
+- [x] `apps/web/src/lib/supabase/client.ts` を作成
   - クライアントサイド用の Supabase クライアントを実装
-  - createClientComponentClient を使用
-- [ ] `apps/web/src/lib/supabase/server.ts` を作成
+  - createBrowserClient を使用（@supabase/ssr）
+- [x] `apps/web/src/lib/supabase/server.ts` を作成
   - サーバーサイド用の Supabase クライアントを実装
-  - createServerComponentClient を使用
-- [ ] 型定義ファイル `apps/web/src/types/supabase.ts` を作成
+  - createServerClient を使用（@supabase/ssr）
+- [x] 型定義ファイル `apps/web/src/types/supabase.ts` を作成
   - Supabase Database 型を定義
 
 ### 2. Auth Store の実装 (PB-12)
-- [ ] `apps/web/src/store/useAuthStore.ts` を作成
+- [x] `apps/web/src/store/useAuthStore.ts` を作成
   - フィールド: `user`, `session`, `isLoading`, `error`
   - アクション: `signIn`, `signUp`, `signOut`, `checkSession`
-- [ ] セッション管理ロジックを実装
+- [x] セッション管理ロジックを実装
   - `auth.onAuthStateChange` リスナーの設定
   - セッション更新処理
 
 ### 3. AuthProvider の実装 (PB-12)
-- [ ] `apps/web/src/components/providers/AuthProvider.tsx` を作成
+- [x] `apps/web/src/components/providers/AuthProvider.tsx` を作成
   - useAuthStore と連携
   - セッションの初期化処理
   - 認証状態のリアルタイム監視
-- [ ] `apps/web/src/app/layout.tsx` に AuthProvider を追加
+- [x] `apps/web/src/app/layout.tsx` に AuthProvider を追加
   - RootLayout でラップ
 
 ### 4. 認証ページの実装 (PB-13)
@@ -90,4 +90,10 @@ Supabase クライアント、AuthProvider、Zustand ストア、認証画面の
 
 ## 更新履歴
 - 2025-10-13: チケット作成
+- 2025-10-13: Supabaseクライアント、Auth Store、AuthProviderの実装完了
+  - @supabase/ssr を使用したクライアント実装
+  - 完全な型定義の作成（Database型）
+  - Zustand による認証状態管理
+  - RootLayoutへのAuthProvider統合
+  - Toasterコンポーネント追加
 
