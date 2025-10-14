@@ -42,7 +42,7 @@ CREATE POLICY "Profiles update own" ON public.profiles
 CREATE TABLE IF NOT EXISTS public.households (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
-  owner_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  owner_user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -267,6 +267,26 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- household オーナー列を認証ユーザーで固定
+CREATE OR REPLACE FUNCTION public.set_household_owner_id()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.owner_user_id IS NULL AND auth.uid() IS NOT NULL THEN
+    NEW.owner_user_id := auth.uid();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS set_household_owner_before_insert ON public.households;
+CREATE TRIGGER set_household_owner_before_insert
+  BEFORE INSERT ON public.households
+  FOR EACH ROW EXECUTE FUNCTION public.set_household_owner_id();
+
 -- household 作成時にオーナーを household_members に追加
 CREATE OR REPLACE FUNCTION public.add_household_owner_as_member()
 RETURNS TRIGGER
@@ -306,9 +326,9 @@ CREATE POLICY "Household owners can view household" ON public.households
 
 DROP POLICY IF EXISTS "Users can create households" ON public.households;
 CREATE POLICY "Users can create households" ON public.households
-  FOR INSERT WITH CHECK (
-    auth.uid() = owner_user_id
-  );
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Household owners can update household" ON public.households;
 CREATE POLICY "Household owners can update household" ON public.households

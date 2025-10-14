@@ -16,28 +16,36 @@ import type { Household, HouseholdMember } from '@/types/household';
  * 世帯を作成
  * 
  * @param name - 世帯名
- * @param userId - 作成者のユーザーID
  * @returns 作成された世帯情報
  * @throws エラーが発生した場合
  */
-export async function createHousehold(
-  name: string,
-  userId: string
-): Promise<Household> {
+export async function createHousehold(name: string): Promise<Household> {
   const supabase = createClient();
+
+  // デバッグ: セッション確認
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log('現在のセッション:', {
+    hasSession: !!session,
+    userId: session?.user?.id,
+  });
 
   const { data, error } = await supabase
     .from('households')
     .insert({
       name,
-      owner_user_id: userId,
     } as any)
     .select()
     .single();
 
   if (error) {
-    console.error('世帯作成エラー:', error);
-    throw new Error('世帯の作成に失敗しました');
+    console.error('世帯作成エラー:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      error: error,
+    });
+    throw new Error(`世帯の作成に失敗しました: ${error.message || '不明なエラー'}`);
   }
 
   return {
@@ -148,4 +156,3 @@ export async function getHouseholdMembers(
       : member.profiles,
   }));
 }
-

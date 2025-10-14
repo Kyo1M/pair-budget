@@ -33,7 +33,7 @@ interface HouseholdStore {
   /** 世帯情報を読み込み */
   loadHousehold: (userId: string) => Promise<void>;
   /** 世帯を作成 */
-  createHousehold: (name: string, userId: string) => Promise<void>;
+  createHousehold: (name: string) => Promise<void>;
   /** 参加コードを発行 */
   generateJoinCode: (householdId: string, userId: string) => Promise<void>;
   /** 参加コードを使用して世帯に参加 */
@@ -83,10 +83,10 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
   /**
    * 世帯を作成
    */
-  createHousehold: async (name: string, userId: string) => {
+  createHousehold: async (name: string) => {
     try {
       set({ isLoading: true, error: null });
-      const household = await createHouseholdService(name, userId);
+      const household = await createHouseholdService(name);
       
       // メンバー情報を取得
       const members = await getHouseholdMembersService(household.id);
@@ -174,4 +174,3 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
       error: null,
     }),
 }));
-

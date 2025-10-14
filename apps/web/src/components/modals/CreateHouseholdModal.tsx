@@ -72,9 +72,11 @@ export function CreateHouseholdModal({
       return;
     }
 
+    console.log('世帯作成開始:', { userId: user.id, householdName: data.name });
+
     try {
       setIsLoading(true);
-      await createHousehold(data.name, user.id);
+      await createHousehold(data.name);
       
       toast.success('世帯を作成しました', {
         description: `「${data.name}」を作成しました`,
