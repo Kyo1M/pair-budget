@@ -13,15 +13,15 @@
 ## タスク
 
 ### 1. Household Service の実装 (PB-20)
-- [ ] `apps/web/src/services/households.ts` を作成
+- [x] `apps/web/src/services/households.ts` を作成
   - `createHousehold(name: string)`: 世帯作成
   - `getHousehold(userId: string)`: ユーザーの世帯取得（MVP: 1世帯のみ）
   - `getHouseholdMembers(householdId: string)`: メンバー一覧取得
-- [ ] エラーハンドリングと型定義を実装
-- [ ] JSDoc コメントを追加
+- [x] エラーハンドリングと型定義を実装
+- [x] JSDoc コメントを追加
 
 ### 2. Join Code Service の実装 (PB-20)
-- [ ] `apps/web/src/services/joinCodes.ts` を作成
+- [x] `apps/web/src/services/joinCodes.ts` を作成
   - `generateJoinCode(householdId: string)`: 参加コード発行
     - 6桁の英数字（紛らわしい文字を除外: O/0, I/1/l など）
     - 有効期限: 24時間
@@ -29,12 +29,12 @@
   - `consumeJoinCode(code: string, userId: string)`: コード使用
     - household_members に追加
     - コードを used ステータスに更新
-- [ ] コード生成ロジックを実装
+- [x] コード生成ロジックを実装
   - 除外文字: O, 0, I, 1, l
   - 使用可能文字: ABCDEFGHJKMNPQRSTUVWXYZ23456789
 
 ### 3. Household Store の実装 (PB-20)
-- [ ] `apps/web/src/store/useHouseholdStore.ts` を作成
+- [x] `apps/web/src/store/useHouseholdStore.ts` を作成
   - フィールド: `household`, `members`, `joinCode`, `isLoading`, `error`
   - アクション:
     - `loadHousehold()`: 世帯情報の取得
@@ -127,4 +127,11 @@
 
 ## 更新履歴
 - 2025-10-13: チケット作成
+- 2025-10-13: Household/JoinCodeサービス、ストア、バリデーションの実装完了
+  - household.ts型定義
+  - households.ts サービス（世帯作成、取得、メンバー取得）
+  - joinCodes.ts サービス（コード発行、検証、使用）
+  - useHouseholdStore（Zustand）
+  - household.ts バリデーションスキーマ
+  - Supabase型定義の制限により一部any型を使用（eslint-disable）
 
