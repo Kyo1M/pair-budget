@@ -44,17 +44,17 @@
     - `refreshMembers()`: メンバー一覧の再取得
 
 ### 4. ホーム画面のベース実装 (PB-21)
-- [ ] `apps/web/src/app/page.tsx` を作成
+- [x] `apps/web/src/app/page.tsx` を更新
   - useHouseholdStore で世帯状態を取得
   - 世帯なし → HouseholdSetupCard を表示
   - 世帯あり → Dashboard を表示（次チケットで詳細実装）
-- [ ] `apps/web/src/components/household/HouseholdSetupCard.tsx` を作成
+- [x] `apps/web/src/components/household/HouseholdSetupCard.tsx` を作成
   - 「世帯を作成」ボタン
   - 「参加コードで参加」ボタン
   - モーダルのトリガー
 
 ### 5. 世帯作成モーダルの実装 (PB-22)
-- [ ] `apps/web/src/components/modals/CreateHouseholdModal.tsx` を作成
+- [x] `apps/web/src/components/modals/CreateHouseholdModal.tsx` を作成
   - 世帯名入力フィールド
   - 作成ボタン
   - shadcn/ui の Dialog を使用
@@ -66,23 +66,23 @@
   - トースト通知を表示（成功メッセージ）
 
 ### 6. 参加コード発行モーダルの実装 (PB-23)
-- [ ] `apps/web/src/components/modals/ShareJoinCodeModal.tsx` を作成
+- [x] `apps/web/src/components/modals/ShareJoinCodeModal.tsx` を作成
   - 参加コード生成ボタン
   - 生成されたコードの表示
   - コピーボタン（クリップボードにコピー）
   - 有効期限の表示
   - shadcn/ui の Dialog を使用
-- [ ] コピー機能の実装
+- [x] コピー機能の実装
   - Clipboard API を使用
   - コピー成功時のフィードバック
 
 ### 7. 参加コード入力モーダルの実装 (PB-24)
-- [ ] `apps/web/src/components/modals/JoinHouseholdModal.tsx` を作成
+- [x] `apps/web/src/components/modals/JoinHouseholdModal.tsx` を作成
   - 6桁のコード入力フィールド
   - 自動フォーマット（大文字変換）
   - 参加ボタン
   - shadcn/ui の Dialog を使用
-- [ ] `apps/web/src/lib/validations/household.ts` に追加
+- [x] `apps/web/src/lib/validations/household.ts` でバリデーション
   - joinHouseholdSchema: コード（6文字、英数字のみ）
 - [ ] 参加成功後の処理
   - モーダルを閉じる
@@ -90,27 +90,27 @@
   - ホーム画面（ダッシュボード）に遷移
 
 ### 8. エラーハンドリング
-- [ ] コード不正・期限切れのエラー表示
-- [ ] すでに世帯に所属している場合のエラー（MVP制約）
-- [ ] ネットワークエラーのハンドリング
+- [x] コード不正・期限切れのエラー表示
+- [x] すでに世帯に所属している場合のエラー（MVP制約）
+- [x] ネットワークエラーのハンドリング
 
 ### 9. UI/UX の改善
-- [ ] ローディング状態の表示
-- [ ] トースト通知の実装（成功・エラー）
-  - shadcn/ui の toast を使用
-- [ ] モーダルのアニメーション
+- [x] ローディング状態の表示
+- [x] トースト通知の実装（成功・エラー）
+  - sonner を使用
+- [x] モーダルのアニメーション（shadcn/ui デフォルト）
 
 ### 10. テスト・動作確認
-- [ ] 世帯作成が正常に動作することを確認
+- [ ] 世帯作成が正常に動作することを確認（次のステップで実施）
   - households テーブルに挿入
   - household_members に owner として追加（trigger）
-- [ ] 参加コード発行が正常に動作することを確認
+- [ ] 参加コード発行が正常に動作することを確認（次のステップで実施）
   - household_join_codes テーブルに挿入
   - 有効期限が24時間後に設定される
-- [ ] 参加コード使用が正常に動作することを確認
+- [ ] 参加コード使用が正常に動作することを確認（次のステップで実施）
   - household_members に member として追加
   - コードが used ステータスに更新
-- [ ] RLS ポリシーが正しく機能することを確認
+- [ ] RLS ポリシーが正しく機能することを確認（次のステップで実施）
   - オーナーのみがコード発行できる
   - 認証済みユーザーが有効なコードを使用できる
 
@@ -134,4 +134,11 @@
   - useHouseholdStore（Zustand）
   - household.ts バリデーションスキーマ
   - Supabase型定義の制限により一部any型を使用（eslint-disable）
+- 2025-10-13: 世帯管理UIコンポーネントの実装完了
+  - HouseholdSetupCard（世帯作成・参加の導線）
+  - CreateHouseholdModal（世帯作成フォーム）
+  - ShareJoinCodeModal（参加コード発行・共有）
+  - JoinHouseholdModal（参加コード入力）
+  - ホームページ更新（世帯状態に応じた表示切り替え）
+  - 実装完了、次は動作確認
 
