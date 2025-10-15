@@ -22,17 +22,23 @@ import type { Household, HouseholdMember } from '@/types/household';
 export async function createHousehold(name: string): Promise<Household> {
   const supabase = createClient();
 
-  // デバッグ: セッション確認
+  // セッション確認
   const { data: { session } } = await supabase.auth.getSession();
-  console.log('現在のセッション:', {
-    hasSession: !!session,
-    userId: session?.user?.id,
-  });
 
+  if (!session?.user?.id) {
+    throw new Error('認証されていません。ログインしてください。');
+  }
+
+  const userId = session.user.id;
+
+  console.log('世帯作成開始:', { userId, householdName: name });
+
+  // owner_user_idを明示的に設定してRLS問題を回避
   const { data, error } = await supabase
     .from('households')
     .insert({
       name,
+      owner_user_id: userId,
     } as any)
     .select()
     .single();
@@ -43,10 +49,11 @@ export async function createHousehold(name: string): Promise<Household> {
       details: error.details,
       hint: error.hint,
       code: error.code,
-      error: error,
     });
     throw new Error(`世帯の作成に失敗しました: ${error.message || '不明なエラー'}`);
   }
+
+  console.log('世帯作成成功:', data);
 
   return {
     id: (data as any).id,
@@ -67,12 +74,13 @@ export async function createHousehold(name: string): Promise<Household> {
 export async function getHousehold(userId: string): Promise<Household | null> {
   const supabase = createClient();
 
+  // 外部キー結合の正しい構文: households(columns)
   const { data, error } = await supabase
     .from('household_members')
     .select(
       `
       household_id,
-      households:household_id (
+      households (
         id,
         name,
         owner_user_id,
@@ -122,6 +130,7 @@ export async function getHouseholdMembers(
 ): Promise<HouseholdMember[]> {
   const supabase = createClient();
 
+  // 外部キー結合の正しい構文: profiles(columns)
   const { data, error } = await supabase
     .from('household_members')
     .select(
@@ -131,7 +140,7 @@ export async function getHouseholdMembers(
       user_id,
       role,
       joined_at,
-      profiles:user_id (
+      profiles (
         email,
         name
       )

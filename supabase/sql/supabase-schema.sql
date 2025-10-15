@@ -56,7 +56,7 @@ ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS public.household_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('owner', 'member')),
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE (household_id, user_id)
