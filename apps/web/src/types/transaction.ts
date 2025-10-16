@@ -10,9 +10,9 @@ import type { LucideIcon } from 'lucide-react';
 export type TransactionType = 'expense' | 'income' | 'advance';
 
 /**
- * 取引カテゴリキー一覧
+ * 支出カテゴリキー一覧
  */
-export const TRANSACTION_CATEGORY_KEYS = [
+export const EXPENSE_CATEGORY_KEYS = [
   'groceries',
   'dining',
   'daily',
@@ -23,9 +23,49 @@ export const TRANSACTION_CATEGORY_KEYS = [
 ] as const;
 
 /**
+ * 収入カテゴリキー一覧
+ */
+export const INCOME_CATEGORY_KEYS = [
+  'salary',
+  'windfall',
+  'subsidy',
+] as const;
+
+/**
+ * 立替カテゴリキー一覧（支出カテゴリを流用）
+ */
+export const ADVANCE_CATEGORY_KEYS = EXPENSE_CATEGORY_KEYS;
+
+/**
+ * すべてのカテゴリキー一覧
+ */
+export const TRANSACTION_CATEGORY_KEYS = [
+  ...EXPENSE_CATEGORY_KEYS,
+  ...INCOME_CATEGORY_KEYS,
+] as const;
+
+/**
+ * 支出カテゴリキー
+ */
+export type ExpenseCategoryKey = typeof EXPENSE_CATEGORY_KEYS[number];
+
+/**
+ * 収入カテゴリキー
+ */
+export type IncomeCategoryKey = typeof INCOME_CATEGORY_KEYS[number];
+
+/**
+ * 立替カテゴリキー
+ */
+export type AdvanceCategoryKey = typeof ADVANCE_CATEGORY_KEYS[number];
+
+/**
  * 取引カテゴリキー
  */
-export type TransactionCategoryKey = typeof TRANSACTION_CATEGORY_KEYS[number];
+export type TransactionCategoryKey =
+  | ExpenseCategoryKey
+  | IncomeCategoryKey
+  | AdvanceCategoryKey;
 
 /**
  * 取引カテゴリ情報
@@ -39,6 +79,8 @@ export interface TransactionCategory {
   icon: LucideIcon;
   /** UI上のカラークラス */
   colorClass: string;
+  /** 適用可能な取引タイプ */
+  types: ReadonlyArray<TransactionType>;
 }
 
 /**

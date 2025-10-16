@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -26,7 +26,7 @@ import {
   type TransactionFormData,
   toTransactionData,
 } from '@/lib/validations/transaction';
-import { TRANSACTION_CATEGORIES } from '@/constants/categories';
+import { getCategoriesByType } from '@/constants/categories';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
 
@@ -80,6 +80,11 @@ export function TransactionModal({
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   const isSubmitting = useTransactionStore((state) => state.isSubmitting);
 
+  const getDefaultCategoryForType = (type: TransactionType) => {
+    const categories = getCategoriesByType(type);
+    return categories[0]?.key ?? getCategoriesByType('expense')[0]?.key ?? 'other';
+  };
+
   const {
     control,
     register,
@@ -94,15 +99,23 @@ export function TransactionModal({
       type: defaultType,
       amount: 0,
       occurredOn: getToday(),
-      category: TRANSACTION_CATEGORIES[0].key,
+      category: getDefaultCategoryForType(defaultType),
       note: '',
-      payerUserId: currentUser?.id ?? null,
+      payerUserId:
+        defaultType === 'expense' || defaultType === 'advance'
+          ? currentUser?.id ?? null
+          : null,
       advanceToUserId: null,
     },
   });
 
   const transactionType = watch('type');
   const payerUserId = watch('payerUserId');
+  const category = watch('category');
+  const categoriesForType = useMemo(
+    () => getCategoriesByType(transactionType),
+    [transactionType]
+  );
 
   /**
    * モーダルを開くたびに初期値をリセット
@@ -113,9 +126,12 @@ export function TransactionModal({
         type: defaultType,
         amount: 0,
         occurredOn: getToday(),
-        category: TRANSACTION_CATEGORIES[0].key,
+        category: getDefaultCategoryForType(defaultType),
         note: '',
-        payerUserId: currentUser?.id ?? null,
+        payerUserId:
+          defaultType === 'expense' || defaultType === 'advance'
+            ? currentUser?.id ?? null
+            : null,
         advanceToUserId: null,
       });
     }
@@ -129,6 +145,15 @@ export function TransactionModal({
       setValue('advanceToUserId', null);
     }
   }, [transactionType, setValue]);
+
+  /**
+   * 取引タイプに応じてカテゴリを補正
+   */
+  useEffect(() => {
+    if (!categoriesForType.some((item) => item.key === category) && categoriesForType[0]) {
+      setValue('category', categoriesForType[0].key);
+    }
+  }, [categoriesForType, category, setValue]);
 
   /**
    * フォーム送信
@@ -161,6 +186,16 @@ export function TransactionModal({
 
     if ((newType === 'expense' || newType === 'advance') && !watch('payerUserId')) {
       setValue('payerUserId', currentUser?.id ?? null);
+    }
+
+    if (newType === 'income') {
+      setValue('payerUserId', null);
+      setValue('advanceToUserId', null);
+    }
+
+    const nextCategories = getCategoriesByType(newType);
+    if (nextCategories[0]) {
+      setValue('category', nextCategories[0].key);
     }
   };
 
@@ -218,21 +253,21 @@ export function TransactionModal({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">カテゴリ</Label>
-                <select
-                  id="category"
-                  className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed"
-                  disabled={isSubmitting}
-                  {...register('category')}
-                >
-                  {TRANSACTION_CATEGORIES.map((category) => (
-                    <option key={category.key} value={category.key}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.category && (
-                  <p className="text-sm text-red-500">{errors.category.message}</p>
+              <Label htmlFor="category">カテゴリ</Label>
+              <select
+                id="category"
+                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed"
+                disabled={isSubmitting}
+                {...register('category')}
+              >
+                {categoriesForType.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              {errors.category && (
+                <p className="text-sm text-red-500">{errors.category.message}</p>
                 )}
               </div>
 

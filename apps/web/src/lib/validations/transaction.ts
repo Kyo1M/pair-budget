@@ -4,8 +4,11 @@
 
 import { z } from 'zod';
 import {
+  EXPENSE_CATEGORY_KEYS,
+  INCOME_CATEGORY_KEYS,
   TRANSACTION_CATEGORY_KEYS,
   type TransactionData,
+  type TransactionCategoryKey,
   type TransactionType,
 } from '@/types/transaction';
 
@@ -13,7 +16,15 @@ const TRANSACTION_TYPE_VALUES = ['expense', 'income', 'advance'] as const satisf
 
 const transactionTypeEnum = z.enum(TRANSACTION_TYPE_VALUES);
 
-const categoryEnum = z.enum(TRANSACTION_CATEGORY_KEYS);
+const categoryEnum = z.enum(
+  TRANSACTION_CATEGORY_KEYS as [
+    TransactionCategoryKey,
+    ...TransactionCategoryKey[]
+  ]
+);
+
+const expenseCategorySet = new Set<TransactionCategoryKey>(EXPENSE_CATEGORY_KEYS);
+const incomeCategorySet = new Set<TransactionCategoryKey>(INCOME_CATEGORY_KEYS);
 
 /**
  * YYYY-MM-DD 形式の妥当性チェック
@@ -90,6 +101,25 @@ export const transactionSchema = z
         path: ['payerUserId'],
         code: z.ZodIssueCode.custom,
         message: '支払者を選択してください',
+      });
+    }
+
+    if (
+      (values.type === 'expense' || values.type === 'advance') &&
+      !expenseCategorySet.has(values.category)
+    ) {
+      ctx.addIssue({
+        path: ['category'],
+        code: z.ZodIssueCode.custom,
+        message: '支出・立替には対応するカテゴリを選択してください',
+      });
+    }
+
+    if (values.type === 'income' && !incomeCategorySet.has(values.category)) {
+      ctx.addIssue({
+        path: ['category'],
+        code: z.ZodIssueCode.custom,
+        message: '収入には収入カテゴリを選択してください',
       });
     }
 
