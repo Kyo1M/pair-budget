@@ -1,9 +1,9 @@
 /**
  * ホームページ
  * 
- * 世帯の有無に応じて表示を切り替えます。
- * - 世帯なし: HouseholdSetupCard を表示
- * - 世帯あり: Dashboard を表示（後で詳細実装）
+ * 世帯の有無に応じて UI を切り替えます。
+ * - 世帯なし: セットアップカードを表示
+ * - 世帯あり: ダッシュボードを表示
  */
 
 'use client';
@@ -11,33 +11,150 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogOut, Share2 } from 'lucide-react';
-import { useAuthStore } from '@/store/useAuthStore';
-import { useHouseholdStore } from '@/store/useHouseholdStore';
+import {
+  CircleDollarSign,
+  HandCoins,
+  Handshake,
+  ShoppingCart,
+} from 'lucide-react';
 import { HouseholdSetupCard } from '@/components/household/HouseholdSetupCard';
 import { ShareJoinCodeModal } from '@/components/modals/ShareJoinCodeModal';
+import { TransactionModal } from '@/components/modals/TransactionModal';
+import { DashboardHeader } from '@/components/layout/DashboardHeader';
+import { SummaryCards } from '@/components/dashboard/SummaryCards';
+import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
+import { BalanceCard } from '@/components/dashboard/BalanceCard';
+import { Fab, type FabAction } from '@/components/ui/Fab';
+import { Button } from '@/components/ui/button';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useHouseholdStore } from '@/store/useHouseholdStore';
+import { useTransactionStore } from '@/store/useTransactionStore';
+import { useDashboardStore } from '@/store/useDashboardStore';
+import { useSettlementStore } from '@/store/useSettlementStore';
+import type { Transaction, TransactionType } from '@/types/transaction';
+
+/**
+ * 月をオフセットして YYYY-MM を生成
+ */
+function shiftMonth(base: string, offset: number): string {
+  const [year, month] = base.split('-').map(Number);
+  const date = new Date(year, month - 1 + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
 
 /**
  * ホームページコンポーネント
- * 
- * @returns ホームページ
  */
 export default function Home() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
-  const { household, members, loadHousehold, isLoading } = useHouseholdStore();
+
+  const household = useHouseholdStore((state) => state.household);
+  const members = useHouseholdStore((state) => state.members);
+  const loadHousehold = useHouseholdStore((state) => state.loadHousehold);
+  const householdLoading = useHouseholdStore((state) => state.isLoading);
+
+  const recentTransactions = useTransactionStore((state) => state.recentTransactions);
+  const loadTransactions = useTransactionStore((state) => state.loadTransactions);
+  const loadRecentTransactions = useTransactionStore((state) => state.loadRecentTransactions);
+  const transactionsLoading = useTransactionStore((state) => state.isLoading);
+  const recentLoading = useTransactionStore((state) => state.isRecentLoading);
+  const transactionError = useTransactionStore((state) => state.error);
+  const clearTransactionError = useTransactionStore((state) => state.clearError);
+
+  const summary = useDashboardStore((state) => state.summary);
+  const selectedMonth = useDashboardStore((state) => state.selectedMonth);
+  const setSelectedMonth = useDashboardStore((state) => state.setSelectedMonth);
+  const loadMonthlySummary = useDashboardStore((state) => state.loadMonthlySummary);
+  const summaryLoading = useDashboardStore((state) => state.isLoading);
+  const dashboardError = useDashboardStore((state) => state.error);
+  const clearDashboardError = useDashboardStore((state) => state.clearError);
+
+  const balances = useSettlementStore((state) => state.balances);
+  const loadBalances = useSettlementStore((state) => state.loadBalances);
+  const balancesLoading = useSettlementStore((state) => state.isLoading);
+  const settlementError = useSettlementStore((state) => state.error);
+  const clearSettlementError = useSettlementStore((state) => state.clearError);
+
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [transactionModalType, setTransactionModalType] = useState<TransactionType>('expense');
 
   /**
-   * 世帯情報を読み込み
+   * 世帯情報を初期取得
    */
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       loadHousehold(user.id);
     }
-  }, [user, loadHousehold]);
+  }, [user?.id, loadHousehold]);
+
+  /**
+   * 世帯・月が変更されたときに取引とサマリーを読み込み
+   */
+  useEffect(() => {
+    if (!household) {
+      return;
+    }
+
+    const fetch = async () => {
+      try {
+        await loadTransactions(household.id, selectedMonth);
+        await loadMonthlySummary(household.id, selectedMonth);
+      } catch (error) {
+        console.error('月次データ読み込みエラー:', error);
+        toast.error('月次データの読み込みに失敗しました');
+      }
+    };
+
+    void fetch();
+  }, [household, selectedMonth, loadTransactions, loadMonthlySummary]);
+
+  /**
+   * 世帯確定後に最近の取引と残高を初期取得
+   */
+  useEffect(() => {
+    if (!household) {
+      return;
+    }
+
+    const fetch = async () => {
+      try {
+        await Promise.all([
+          loadRecentTransactions(household.id),
+          loadBalances(household.id),
+        ]);
+      } catch (error) {
+        console.error('初期データ読み込みエラー:', error);
+      }
+    };
+
+    void fetch();
+  }, [household, loadRecentTransactions, loadBalances]);
+
+  /**
+   * エラー通知をトースト表示
+   */
+  useEffect(() => {
+    if (transactionError) {
+      toast.error(transactionError);
+      clearTransactionError();
+    }
+  }, [transactionError, clearTransactionError]);
+
+  useEffect(() => {
+    if (dashboardError) {
+      toast.error(dashboardError);
+      clearDashboardError();
+    }
+  }, [dashboardError, clearDashboardError]);
+
+  useEffect(() => {
+    if (settlementError) {
+      toast.error(settlementError);
+      clearSettlementError();
+    }
+  }, [settlementError, clearSettlementError]);
 
   /**
    * ログアウト処理
@@ -55,20 +172,74 @@ export default function Home() {
   };
 
   /**
-   * ローディング中の表示
+   * 月移動
    */
-  if (isLoading) {
+  const handlePrevMonth = () => setSelectedMonth(shiftMonth(selectedMonth, -1));
+  const handleNextMonth = () => setSelectedMonth(shiftMonth(selectedMonth, 1));
+
+  /**
+   * 取引モーダル表示
+   */
+  const openTransactionModal = (type: TransactionType) => {
+    setTransactionModalType(type);
+    setIsTransactionModalOpen(true);
+  };
+
+  /**
+   * 取引登録成功時の処理
+   */
+  const handleTransactionSuccess = async (transaction: Transaction) => {
+    if (!household) {
+      return;
+    }
+
+    await loadMonthlySummary(household.id, selectedMonth);
+
+    if (transaction.type === 'advance') {
+      await loadBalances(household.id);
+    }
+  };
+
+  /**
+   * FAB のアクション
+   */
+  const fabActions: FabAction[] = [
+    {
+      label: '支出を記録',
+      icon: ShoppingCart,
+      onClick: () => openTransactionModal('expense'),
+    },
+    {
+      label: '収入を記録',
+      icon: CircleDollarSign,
+      onClick: () => openTransactionModal('income'),
+    },
+    {
+      label: '立替を記録',
+      icon: Handshake,
+      onClick: () => openTransactionModal('advance'),
+    },
+    {
+      label: '精算を記録 (準備中)',
+      icon: HandCoins,
+      onClick: () => toast.info('精算機能は準備中です'),
+      disabled: true,
+    },
+  ] as const;
+
+  /**
+   * ローディング表示
+   */
+  if (householdLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600">読み込み中...</p>
-        </div>
+        <div className="text-center text-gray-600">読み込み中...</div>
       </div>
     );
   }
 
   /**
-   * 世帯なしの表示
+   * 世帯未所属の画面
    */
   if (!household) {
     return (
@@ -87,7 +258,6 @@ export default function Home() {
             size="sm"
             className="w-full"
           >
-            <LogOut className="mr-2 h-4 w-4" />
             ログアウト
           </Button>
         </div>
@@ -95,102 +265,55 @@ export default function Home() {
     );
   }
 
-  /**
-   * 世帯ありの表示（簡易ダッシュボード）
-   */
   const isOwner = household.ownerUserId === user?.id;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between p-4">
-          <div>
-            <h1 className="text-xl font-bold">{household.name}</h1>
-            <p className="text-sm text-gray-600">
-              {user?.email}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {isOwner && (
-              <Button
-                onClick={() => setIsShareModalOpen(true)}
-                variant="outline"
-                size="sm"
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                参加コードを共有
-              </Button>
-            )}
-            <Button
-              onClick={handleSignOut}
-              variant="ghost"
-              size="sm"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              ログアウト
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <DashboardHeader
+        householdName={household.name}
+        userEmail={user?.email ?? undefined}
+        selectedMonth={selectedMonth}
+        onPrevMonth={handlePrevMonth}
+        onNextMonth={handleNextMonth}
+        onShare={isOwner ? () => setIsShareModalOpen(true) : undefined}
+        onSignOut={handleSignOut}
+        isOwner={isOwner}
+      />
 
-      {/* メインコンテンツ */}
-      <main className="mx-auto max-w-4xl p-4">
-        <div className="space-y-6">
-          {/* 世帯情報カード */}
-          <Card>
-            <CardHeader>
-              <CardTitle>世帯情報</CardTitle>
-              <CardDescription>現在の世帯メンバー</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {member.profile?.name || member.profile?.email}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {member.role === 'owner' ? 'オーナー' : 'メンバー'}
-                      </p>
-                    </div>
-                    {member.userId === user?.id && (
-                      <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
-                        あなた
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+      <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
+        <SummaryCards summary={summary} isLoading={summaryLoading || transactionsLoading} />
 
-          {/* 開発中の機能 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>開発中の機能</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>✅ 認証機能（サインアップ・サインイン）</li>
-                <li>✅ 世帯管理（作成・参加コード）</li>
-                <li>⏳ 取引登録（支出・収入・立替）</li>
-                <li>⏳ ダッシュボード</li>
-                <li>⏳ 精算機能</li>
-              </ul>
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3">
+            <RecentTransactions
+              transactions={recentTransactions}
+              isLoading={recentLoading}
+            />
+          </div>
+          <div className="lg:col-span-2">
+            <BalanceCard
+              balances={balances}
+              currentUserId={user?.id}
+              isLoading={balancesLoading}
+            />
+          </div>
         </div>
       </main>
 
-      {/* 参加コード共有モーダル */}
+      <Fab actions={fabActions} />
+
       <ShareJoinCodeModal
         open={isShareModalOpen}
         onOpenChange={setIsShareModalOpen}
+      />
+
+      <TransactionModal
+        open={isTransactionModalOpen}
+        onOpenChange={setIsTransactionModalOpen}
+        householdId={household.id}
+        members={members}
+        defaultType={transactionModalType}
+        onSuccess={handleTransactionSuccess}
       />
     </div>
   );
