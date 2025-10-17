@@ -125,8 +125,8 @@ export type Database = {
         Row: {
           id: string;
           household_id: string;
-          from_user_id: string;
-          to_user_id: string;
+          from_user_id: string | null;
+          to_user_id: string | null;
           amount: number;
           settled_on: string;
           note: string | null;
@@ -136,8 +136,8 @@ export type Database = {
         Insert: {
           id?: string;
           household_id: string;
-          from_user_id: string;
-          to_user_id: string;
+          from_user_id?: string | null;
+          to_user_id?: string | null;
           amount: number;
           settled_on?: string;
           note?: string | null;
@@ -147,8 +147,8 @@ export type Database = {
         Update: {
           id?: string;
           household_id?: string;
-          from_user_id?: string;
-          to_user_id?: string;
+          from_user_id?: string | null;
+          to_user_id?: string | null;
           amount?: number;
           settled_on?: string;
           note?: string | null;
@@ -222,4 +222,3 @@ export type Database = {
     };
   };
 };
-

@@ -109,13 +109,14 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS public.settlements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
-  from_user_id UUID NOT NULL REFERENCES auth.users(id),
-  to_user_id UUID NOT NULL REFERENCES auth.users(id),
+  from_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  to_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
   settled_on DATE NOT NULL DEFAULT CURRENT_DATE,
   note TEXT,
   created_by UUID NOT NULL REFERENCES auth.users(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CHECK (from_user_id IS NOT NULL OR to_user_id IS NOT NULL)
 );
 
 ALTER TABLE public.settlements ENABLE ROW LEVEL SECURITY;
@@ -202,6 +203,7 @@ BEGIN
       COALESCE(SUM(s.amount), 0) AS paid_amount
     FROM public.settlements s
     WHERE s.household_id = target_household
+      AND s.from_user_id IS NOT NULL
     GROUP BY s.from_user_id
   ),
   settlement_received AS (
@@ -211,6 +213,7 @@ BEGIN
       COALESCE(SUM(s.amount), 0) AS received_amount
     FROM public.settlements s
     WHERE s.household_id = target_household
+      AND s.to_user_id IS NOT NULL
     GROUP BY s.to_user_id
   )
   SELECT 
@@ -219,8 +222,8 @@ BEGIN
     (
       COALESCE(ap.paid_amount, 0) - 
       COALESCE(ad.debt_amount, 0) - 
-      COALESCE(sp.paid_amount, 0) + 
-      COALESCE(sr.received_amount, 0)
+      COALESCE(sr.received_amount, 0) + 
+      COALESCE(sp.paid_amount, 0)
     ) AS balance_amount
   FROM public.household_members hm
   LEFT JOIN public.profiles p ON p.id = hm.user_id

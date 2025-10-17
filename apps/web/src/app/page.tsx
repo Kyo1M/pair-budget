@@ -20,12 +20,14 @@ import {
 import { HouseholdSetupCard } from '@/components/household/HouseholdSetupCard';
 import { ShareJoinCodeModal } from '@/components/modals/ShareJoinCodeModal';
 import { TransactionModal } from '@/components/modals/TransactionModal';
+import { SettlementModal } from '@/components/modals/SettlementModal';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { Fab, type FabAction } from '@/components/ui/Fab';
 import { Button } from '@/components/ui/button';
+import { HOUSEHOLD_SETTLEMENT_KEY } from '@/lib/validations/settlement';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useHouseholdStore } from '@/store/useHouseholdStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
@@ -72,13 +74,20 @@ export default function Home() {
 
   const balances = useSettlementStore((state) => state.balances);
   const loadBalances = useSettlementStore((state) => state.loadBalances);
+  const loadSettlements = useSettlementStore((state) => state.loadSettlements);
   const balancesLoading = useSettlementStore((state) => state.isLoading);
+  const balanceHighlights = useSettlementStore((state) => state.balanceHighlights);
   const settlementError = useSettlementStore((state) => state.error);
   const clearSettlementError = useSettlementStore((state) => state.clearError);
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionModalType, setTransactionModalType] = useState<TransactionType>('expense');
+  const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const [settlementTarget, setSettlementTarget] = useState<{
+    partnerId: string;
+    direction: 'pay' | 'receive';
+  } | null>(null);
 
   /**
    * 世帯情報を初期取得
@@ -123,6 +132,7 @@ export default function Home() {
         await Promise.all([
           loadRecentTransactions(household.id),
           loadBalances(household.id),
+          loadSettlements(household.id),
         ]);
       } catch (error) {
         console.error('初期データ読み込みエラー:', error);
@@ -130,7 +140,7 @@ export default function Home() {
     };
 
     void fetch();
-  }, [household, loadRecentTransactions, loadBalances]);
+  }, [household, loadRecentTransactions, loadBalances, loadSettlements]);
 
   /**
    * エラー通知をトースト表示
@@ -200,6 +210,23 @@ export default function Home() {
     }
   };
 
+  const currentUserBalance =
+    user?.id != null
+      ? balances.find((balance) => balance.userId === user.id)?.balanceAmount ?? 0
+      : 0;
+
+  const openSettlementModal = (target: { partnerId: string; direction: 'pay' | 'receive' }) => {
+    setSettlementTarget(target);
+    setIsSettlementModalOpen(true);
+  };
+
+  const handleSettlementModalOpenChange = (open: boolean) => {
+    setIsSettlementModalOpen(open);
+    if (!open) {
+      setSettlementTarget(null);
+    }
+  };
+
   /**
    * FAB のアクション
    */
@@ -220,10 +247,13 @@ export default function Home() {
       onClick: () => openTransactionModal('advance'),
     },
     {
-      label: '精算を記録 (準備中)',
+      label: '精算を記録',
       icon: HandCoins,
-      onClick: () => toast.info('精算機能は準備中です'),
-      disabled: true,
+      onClick: () =>
+        openSettlementModal({
+          partnerId: HOUSEHOLD_SETTLEMENT_KEY,
+          direction: currentUserBalance < 0 ? 'pay' : 'receive',
+        }),
     },
   ] as const;
 
@@ -295,6 +325,8 @@ export default function Home() {
               balances={balances}
               currentUserId={user?.id}
               isLoading={balancesLoading}
+              highlights={balanceHighlights}
+              onSelectSettlementTarget={openSettlementModal}
             />
           </div>
         </div>
@@ -314,6 +346,15 @@ export default function Home() {
         members={members}
         defaultType={transactionModalType}
         onSuccess={handleTransactionSuccess}
+      />
+
+      <SettlementModal
+        open={isSettlementModalOpen}
+        onOpenChange={handleSettlementModalOpenChange}
+        householdId={household.id}
+        members={members}
+        initialPartnerId={settlementTarget?.partnerId}
+        initialDirection={settlementTarget?.direction}
       />
     </div>
   );

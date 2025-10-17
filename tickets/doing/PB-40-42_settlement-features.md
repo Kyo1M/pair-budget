@@ -11,15 +11,15 @@
 ## タスク
 
 ### 1. Settlement Service の拡張 (PB-40)
-- [ ] `apps/web/src/services/settlements.ts` を更新
+- [x] `apps/web/src/services/settlements.ts` を更新
   - `getSettlements(householdId: string)`: 精算履歴取得
   - `createSettlement(data: SettlementData)`: 精算記録作成
   - `deleteSettlement(id: string)`: 精算削除（作成者のみ）
-- [ ] 精算型定義 `apps/web/src/types/settlement.ts` を作成
+- [x] 精算型定義 `apps/web/src/types/settlement.ts` を作成
   - SettlementData インターフェース
 
 ### 2. Settlement Store の拡張 (PB-40)
-- [ ] `apps/web/src/store/useSettlementStore.ts` を更新
+- [x] `apps/web/src/store/useSettlementStore.ts` を更新
   - フィールドに `settlements` を追加
   - アクション:
     - `loadSettlements(householdId: string)`: 精算履歴取得
@@ -29,7 +29,7 @@
     - `removeSettlement(id: string)`: 精算削除
 
 ### 3. 精算モーダルの実装 (PB-41)
-- [ ] `apps/web/src/components/modals/SettlementModal.tsx` を作成
+- [x] `apps/web/src/components/modals/SettlementModal.tsx` を作成
   - 精算方向の選択
     - 「相手に支払う」
     - 「相手から受け取る」
@@ -43,19 +43,19 @@
   - shadcn/ui の Dialog を使用
 
 ### 4. バリデーションスキーマの作成 (PB-41)
-- [ ] `apps/web/src/lib/validations/settlement.ts` を作成
+- [x] `apps/web/src/lib/validations/settlement.ts` を作成
   - settlementSchema:
     - 金額: 正の数値、必須
     - 日付: 有効な日付形式、必須
     - メモ: 任意、最大200文字
 
 ### 5. FAB への精算ボタン追加
-- [ ] `apps/web/src/components/ui/Fab.tsx` を更新
+- [x] `apps/web/src/components/ui/Fab.tsx` を更新
   - 「精算を記録」メニュー項目を追加
   - クリックで SettlementModal を開く
 
 ### 6. 精算履歴の表示 (将来拡張用の準備)
-- [ ] `apps/web/src/components/dashboard/SettlementHistory.tsx` を作成
+- [x] `apps/web/src/components/dashboard/SettlementHistory.tsx` を作成
   - 精算履歴の一覧表示
   - 各精算の表示項目:
     - 日付
@@ -65,15 +65,15 @@
   - MVP では非表示だが、コンポーネントは準備しておく
 
 ### 7. 残高更新ロジックの確認
-- [ ] 精算後の残高再計算が正しく動作することを確認
+- [x] 精算後の残高再計算が正しく動作することを確認
   - get_household_balances RPC 関数を再呼び出し
   - 画面に即座に反映されることを確認
 
 ### 8. UI/UX の改善
-- [ ] ローディング状態の表示
-- [ ] エラーハンドリング
-- [ ] トースト通知（精算記録成功）
-- [ ] 精算後の残高変化をアニメーションで表示
+- [x] ローディング状態の表示
+- [x] エラーハンドリング
+- [x] トースト通知（精算記録成功）
+- [x] 精算後の残高変化をアニメーションで表示
 
 ### 9. テスト・動作確認
 - [ ] 精算の記録が正常に動作することを確認
@@ -108,4 +108,3 @@
 
 ## 更新履歴
 - 2025-10-13: チケット作成
-
