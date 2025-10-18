@@ -25,6 +25,7 @@ import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
+import { MonthlyCategoryBreakdown } from '@/components/dashboard/MonthlyCategoryBreakdown';
 import { Fab, type FabAction } from '@/components/ui/Fab';
 import { Button } from '@/components/ui/button';
 import { HOUSEHOLD_SETTLEMENT_KEY } from '@/lib/validations/settlement';
@@ -56,6 +57,7 @@ export default function Home() {
   const loadHousehold = useHouseholdStore((state) => state.loadHousehold);
   const householdLoading = useHouseholdStore((state) => state.isLoading);
 
+  const transactions = useTransactionStore((state) => state.transactions);
   const recentTransactions = useTransactionStore((state) => state.recentTransactions);
   const loadTransactions = useTransactionStore((state) => state.loadTransactions);
   const loadRecentTransactions = useTransactionStore((state) => state.loadRecentTransactions);
@@ -215,8 +217,14 @@ export default function Home() {
       ? balances.find((balance) => balance.userId === user.id)?.balanceAmount ?? 0
       : 0;
 
-  const openSettlementModal = (target: { partnerId: string; direction: 'pay' | 'receive' }) => {
-    setSettlementTarget(target);
+  const openSettlementModal = (target: {
+    partnerId: string;
+    suggestedDirection: 'pay' | 'receive';
+  }) => {
+    setSettlementTarget({
+      partnerId: target.partnerId,
+      direction: target.suggestedDirection,
+    });
     setIsSettlementModalOpen(true);
   };
 
@@ -252,7 +260,7 @@ export default function Home() {
       onClick: () =>
         openSettlementModal({
           partnerId: HOUSEHOLD_SETTLEMENT_KEY,
-          direction: currentUserBalance < 0 ? 'pay' : 'receive',
+          suggestedDirection: currentUserBalance < 0 ? 'pay' : 'receive',
         }),
     },
   ] as const;
@@ -313,23 +321,21 @@ export default function Home() {
       <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
         <SummaryCards summary={summary} isLoading={summaryLoading || transactionsLoading} />
 
-        <div className="grid gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-3">
-            <RecentTransactions
-              transactions={recentTransactions}
-              isLoading={recentLoading}
-            />
-          </div>
-          <div className="lg:col-span-2">
-            <BalanceCard
-              balances={balances}
-              currentUserId={user?.id}
-              isLoading={balancesLoading}
-              highlights={balanceHighlights}
-              onSelectSettlementTarget={openSettlementModal}
-            />
-          </div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <MonthlyCategoryBreakdown
+            transactions={transactions}
+            isLoading={transactionsLoading}
+          />
+          <BalanceCard
+            balances={balances}
+            currentUserId={user?.id}
+            isLoading={balancesLoading}
+            highlights={balanceHighlights}
+            onSelectSettlementTarget={openSettlementModal}
+          />
         </div>
+
+        <RecentTransactions transactions={recentTransactions} isLoading={recentLoading} />
       </main>
 
       <Fab actions={fabActions} />

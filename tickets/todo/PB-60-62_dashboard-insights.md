@@ -3,6 +3,11 @@
 ## 概要
 月次ダッシュボードに支出カテゴリの可視化を追加しつつ、年次サマリーと差額推移の確認機能を提供する。あわせて将来的に有用なインサイト拡張案を整理する。
 
+## 前提・決定事項
+- 立替 (`advance`) 取引は支出集計から除外する。ただし実際に家庭から出費したものは `expense` 取引として登録し、集計対象に含める。
+- 年次ビューへ切り替えた際の初期表示は当年とする（月次ビューは当月を表示）。
+- CSV エクスポートは今回範囲外（将来的な検討事項として残す）。
+
 ## 関連バックログ
 - PB-60: 月次カテゴリ内訳チャートとダッシュボード再構成
 - PB-61: 年次サマリー表示と月次差額棒グラフの実装
@@ -11,17 +16,20 @@
 ## タスク
 
 ### 1. 月次カテゴリ内訳チャートの実装 (PB-60)
-- [ ] チャートライブラリを導入（`apps/web` に `recharts` を追加し、型定義も含めて設定）
-- [ ] 月次支出カテゴリ合計を算出するユーティリティを追加
+- [x] チャートライブラリを導入（`apps/web` に `recharts` を追加し、型定義も含めて設定）
+- [x] 月次支出カテゴリ合計を算出するユーティリティを追加
   - `@/store/useDashboardStore` から `transactions` を参照するか、専用フックで算出
   - 支出 (`expense`) のみを対象とし、立替 (`advance`) の扱いを関数引数で切り替えられるようにする
-- [ ] `apps/web/src/components/dashboard/MonthlyCategoryBreakdown.tsx` を作成
+- [x] `apps/web/src/components/dashboard/MonthlyCategoryBreakdown.tsx` を作成
   - 円グラフ + 凡例 + 合計値表示
   - 取引がない場合のプレースホルダー表示
   - ローディングスケルトンを実装
-- [ ] カテゴリカラーは `@/constants/categories` の `colorClass` を基に `chart` 用カラーへ変換
+- [x] Household 向け立替 (`advanceToUserId` が null) のみ支出集計に含め、個別立替は除外
+- [x] 立替 (`advance`) を除外した支出集計で円グラフを描画し、対象データの条件を UI 上でも明記
+- [x] カテゴリカラーは `@/constants/categories` の `colorClass` を基に `chart` 用カラーへ変換
   - テンプレートリテラルで `text-*` → `bg-*` 変換を行っている既存実装の重複を整理
-- [ ] `apps/web/src/app/page.tsx` のレイアウトを調整
+- [x] 支出フォームに「家庭の支出を一旦立替えた」チェックを追加し、保存時に household 立替として変換
+- [x] `apps/web/src/app/page.tsx` のレイアウトを調整
   - Summary → MonthlyCategoryBreakdown → BalanceCard の順で並べ、`RecentTransactions` はページ下部にフル幅で配置
   - スモールスクリーンでも縦積みで閲覧しやすいように spacing を調整
 - [ ] 取引モーダル完了後にカテゴリ内訳が即時再計算されることを確認
@@ -60,18 +68,14 @@
 - [ ] 月次カテゴリ内訳のテキスト表示を補完
   - `TopSpendingCategories` コンポーネントで上位3カテゴリと前月比をリスト表示
   - グラフが見づらいユーザー向けのアクセシビリティ改善
-- [ ] CSV エクスポート機能を追加
-  - 現在選択中の月／年の取引を CSV としてダウンロードできるボタンを `RecentTransactions` の近くに配置
-  - `services/transactions.ts` に CSV 生成ヘルパーを追加し、`Blob` をクライアントで生成
+- [x] 自分の残高カードから精算を開始できるようにし、相手候補を自動提案
 - [ ] 立替 (`advance`) を集計から除外／含めるトグルを UI に追加
   - `MonthlyCategoryBreakdown` と `YearlyBalanceChart` の集計関数が同じフラグを参照できるようリファクタリング
   - 選択状態は `localStorage` に保存し、Mac Safari でも動作することを確認
 - [ ] これら追加機能の利用ガイドを `docs/dashboard-insights.md` として作成
 
-## 質問
-- 立替 (`advance`) 取引は支出集計から除外した方が良いか（現状は支出扱い）
-- 年次ビューの初期表示は「当年」固定で良いか、月次で選択した月の年を基準にすべきか
-- CSV エクスポートのフォーマット要件（ヘッダー言語・日付フォーマット・文字コード）は UTF-8 / カンマ区切りで問題ないか
+## メモ
+- CSV エクスポートは将来的な改善案として backlog に残し、次期スプリントでの検討とする。
 
 ## 関連ファイル
 - `apps/web/src/app/page.tsx`

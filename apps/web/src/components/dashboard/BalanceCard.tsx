@@ -62,6 +62,30 @@ export function BalanceCard({
     });
   };
 
+  const suggestPartnerForCurrentUser = (direction: 'pay' | 'receive'): string | null => {
+    if (!currentUserId) {
+      return null;
+    }
+
+    const candidates = balances.filter(
+      (balance) => balance.userId && balance.userId !== currentUserId
+    );
+
+    if (direction === 'receive') {
+      return (
+        candidates
+          .filter((balance) => balance.balanceAmount < 0)
+          .sort((a, b) => a.balanceAmount - b.balanceAmount)[0]?.userId ?? null
+      );
+    }
+
+    return (
+      candidates
+        .filter((balance) => balance.balanceAmount > 0)
+        .sort((a, b) => b.balanceAmount - a.balanceAmount)[0]?.userId ?? null
+    );
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -109,8 +133,7 @@ export function BalanceCard({
                 balance.userName || (isCurrentUser ? 'あなた' : '名前未設定');
               const amountClass = getBalanceClasses(balance.balanceAmount);
 
-              const canSelect =
-                !!onSelectSettlementTarget && !!balance.userId && !isCurrentUser;
+              const canSelect = !!onSelectSettlementTarget && !!balance.userId;
 
               const buttonClassName = cn(
                 'w-full rounded-lg border p-3 text-left ring-0 transition-colors duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-default disabled:opacity-95',
@@ -129,14 +152,22 @@ export function BalanceCard({
                       if (!onSelectSettlementTarget || !balance.userId) {
                         return;
                       }
+
+                      const direction =
+                        balance.balanceAmount > 0
+                          ? 'receive'
+                          : balance.balanceAmount < 0
+                            ? 'pay'
+                            : 'receive';
+
+                      const partnerId =
+                        isCurrentUser
+                          ? suggestPartnerForCurrentUser(direction) ?? HOUSEHOLD_SETTLEMENT_KEY
+                          : balance.userId;
+
                       onSelectSettlementTarget({
-                        partnerId: balance.userId,
-                        suggestedDirection:
-                          balance.balanceAmount > 0
-                            ? 'receive'
-                            : balance.balanceAmount < 0
-                              ? 'pay'
-                              : 'receive',
+                        partnerId: partnerId,
+                        suggestedDirection: direction,
                       });
                     }}
                   >
@@ -152,11 +183,17 @@ export function BalanceCard({
                         </p>
                         {canSelect && (
                           <p className="mt-1 text-xs text-blue-600">
-                            {balance.balanceAmount > 0
-                              ? 'この相手から精算を受け取る'
-                              : balance.balanceAmount < 0
-                                ? 'この相手へ精算を支払う'
-                                : '精算を記録'}
+                            {isCurrentUser
+                              ? balance.balanceAmount > 0
+                                ? '受け取った相手との精算を記録'
+                                : balance.balanceAmount < 0
+                                  ? '支払った相手との精算を記録'
+                                  : '精算を記録'
+                              : balance.balanceAmount > 0
+                                ? 'この相手から精算を受け取る'
+                                : balance.balanceAmount < 0
+                                  ? 'この相手へ精算を支払う'
+                                  : '精算を記録'}
                           </p>
                         )}
                       </div>

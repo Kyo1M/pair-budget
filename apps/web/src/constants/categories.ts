@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import type {
+  ExpenseCategoryKey,
   TransactionCategory,
   TransactionCategoryKey,
   TransactionType,
@@ -104,6 +105,21 @@ export const TRANSACTION_CATEGORY_MAP: Record<TransactionCategoryKey, Transactio
     acc[category.key] = category;
     return acc;
   }, {} as Record<TransactionCategoryKey, TransactionCategory>);
+
+/**
+ * 支出カテゴリごとのチャートカラー
+ *
+ * 円グラフや棒グラフの色付けに使用する。
+ */
+export const EXPENSE_CATEGORY_CHART_COLORS: Record<ExpenseCategoryKey, string> = {
+  groceries: 'var(--chart-1)',
+  dining: 'var(--chart-2)',
+  daily: 'var(--chart-3)',
+  medical: 'var(--chart-4)',
+  home: 'var(--chart-5)',
+  kids: 'var(--chart-6)',
+  other: 'var(--chart-7)',
+};
 
 /**
  * 指定タイプのカテゴリ一覧を取得

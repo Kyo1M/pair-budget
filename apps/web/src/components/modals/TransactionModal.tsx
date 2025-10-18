@@ -101,6 +101,7 @@ export function TransactionModal({
       occurredOn: getToday(),
       category: getDefaultCategoryForType(defaultType),
       note: '',
+      isHouseholdAdvance: false,
       payerUserId:
         defaultType === 'expense' || defaultType === 'advance'
           ? currentUser?.id ?? null
@@ -112,6 +113,7 @@ export function TransactionModal({
   const transactionType = watch('type');
   const payerUserId = watch('payerUserId');
   const category = watch('category');
+  const isHouseholdAdvance = watch('isHouseholdAdvance');
   const categoriesForType = useMemo(
     () => getCategoriesByType(transactionType),
     [transactionType]
@@ -128,6 +130,7 @@ export function TransactionModal({
         occurredOn: getToday(),
         category: getDefaultCategoryForType(defaultType),
         note: '',
+        isHouseholdAdvance: false,
         payerUserId:
           defaultType === 'expense' || defaultType === 'advance'
             ? currentUser?.id ?? null
@@ -144,7 +147,10 @@ export function TransactionModal({
     if (transactionType !== 'advance') {
       setValue('advanceToUserId', null);
     }
-  }, [transactionType, setValue]);
+    if (transactionType !== 'expense' && isHouseholdAdvance) {
+      setValue('isHouseholdAdvance', false);
+    }
+  }, [transactionType, isHouseholdAdvance, setValue]);
 
   /**
    * 取引タイプに応じてカテゴリを補正
@@ -270,6 +276,30 @@ export function TransactionModal({
                 <p className="text-sm text-red-500">{errors.category.message}</p>
                 )}
               </div>
+
+              {transactionType === 'expense' && (
+                <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <label className="flex items-start gap-3">
+                    <Controller
+                      name="isHouseholdAdvance"
+                      control={control}
+                      render={({ field }) => (
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border border-amber-300 accent-amber-500"
+                          checked={field.value ?? false}
+                          onChange={(event) => field.onChange(event.target.checked)}
+                          disabled={isSubmitting}
+                        />
+                      )}
+                    />
+                    <span>
+                      家庭の支出を一旦立替えた場合はチェックしてください。<br />
+                      後で精算できるよう立替として計上します。
+                    </span>
+                  </label>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="note">メモ</Label>

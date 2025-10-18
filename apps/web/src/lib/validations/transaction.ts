@@ -82,6 +82,8 @@ export const transactionSchema = z
       .max(120, 'メモは120文字以内で入力してください')
       .optional()
       .nullable(),
+    /** 家庭向け立替フラグ */
+    isHouseholdAdvance: z.boolean().optional().default(false),
     /** 支払者 */
     payerUserId: z
       .string()
@@ -161,14 +163,23 @@ export function toTransactionData(
   data: TransactionFormData,
   householdId: string
 ): TransactionData {
+  const isHouseholdAdvance = data.type === 'expense' && data.isHouseholdAdvance === true;
+  const resolvedType: TransactionData['type'] = isHouseholdAdvance ? 'advance' : data.type;
+  const resolvedAdvanceToUserId =
+    resolvedType === 'advance'
+      ? isHouseholdAdvance
+        ? null
+        : data.advanceToUserId ?? null
+      : null;
+
   return {
     householdId,
-    type: data.type,
+    type: resolvedType,
     amount: data.amount,
     occurredOn: data.occurredOn,
     category: data.category,
     note: data.note?.trim() ? data.note.trim() : null,
     payerUserId: data.payerUserId ?? null,
-    advanceToUserId: data.type === 'advance' ? data.advanceToUserId ?? null : null,
+    advanceToUserId: resolvedAdvanceToUserId,
   };
 }
