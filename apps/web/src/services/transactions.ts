@@ -138,6 +138,39 @@ export async function getTransactions(
 }
 
 /**
+ * 指定期間の取引を取得
+ *
+ * @param householdId - 世帯ID
+ * @param startDate - 開始日 (YYYY-MM-DD)
+ * @param endDate - 終了日 (YYYY-MM-DD)
+ * @returns 取引一覧
+ */
+export async function getTransactionsByDateRange(
+  householdId: string,
+  startDate: string,
+  endDate: string
+): Promise<Transaction[]> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select(TRANSACTION_SELECT)
+    .eq('household_id', householdId)
+    .gte('occurred_on', startDate)
+    .lte('occurred_on', endDate)
+    .order('occurred_on', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('期間指定取引取得エラー:', error);
+    throw new Error('取引の取得に失敗しました');
+  }
+
+  const rows = (data ?? []) as TransactionRow[];
+  return rows.map(mapTransaction);
+}
+
+/**
  * 最近の取引を取得
  * 
  * @param householdId - 世帯ID
@@ -195,9 +228,9 @@ export async function createTransaction(input: TransactionData): Promise<Transac
     created_by: session.user.id,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('transactions')
-    .insert(payload)
+    .insert([payload])
     .select(TRANSACTION_SELECT)
     .single();
 

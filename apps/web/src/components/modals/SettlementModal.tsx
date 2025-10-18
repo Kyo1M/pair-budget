@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { type Resolver, type SubmitHandler, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
@@ -99,7 +99,7 @@ export function SettlementModal({
     watch,
     formState: { errors },
   } = useForm<SettlementFormData>({
-    resolver: zodResolver(settlementSchema),
+    resolver: zodResolver(settlementSchema) as Resolver<SettlementFormData>,
     defaultValues: {
       direction: 'receive',
       partnerUserId: HOUSEHOLD_SETTLEMENT_KEY,
@@ -156,7 +156,7 @@ export function SettlementModal({
   /**
    * フォーム送信
    */
-  const onSubmit = async (data: SettlementFormData) => {
+  const onSubmit: SubmitHandler<SettlementFormData> = async (data) => {
     if (!currentUser) {
       toast.error('ユーザー情報が取得できません');
       return;

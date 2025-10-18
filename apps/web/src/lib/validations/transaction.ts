@@ -16,12 +16,12 @@ const TRANSACTION_TYPE_VALUES = ['expense', 'income', 'advance'] as const satisf
 
 const transactionTypeEnum = z.enum(TRANSACTION_TYPE_VALUES);
 
-const categoryEnum = z.enum(
-  TRANSACTION_CATEGORY_KEYS as [
-    TransactionCategoryKey,
-    ...TransactionCategoryKey[]
-  ]
-);
+const CATEGORY_ENUM_VALUES = [...TRANSACTION_CATEGORY_KEYS] as [
+  TransactionCategoryKey,
+  ...TransactionCategoryKey[]
+];
+
+const categoryEnum = z.enum(CATEGORY_ENUM_VALUES);
 
 const expenseCategorySet = new Set<TransactionCategoryKey>(EXPENSE_CATEGORY_KEYS);
 const incomeCategorySet = new Set<TransactionCategoryKey>(INCOME_CATEGORY_KEYS);
@@ -59,16 +59,35 @@ function isValidDate(value: string): boolean {
 /**
  * 取引フォームのバリデーションスキーマ
  */
+const amountSchema = z
+  .preprocess((value) => {
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') {
+        return NaN;
+      }
+      const normalized = trimmed.replace(/,/g, '');
+      const parsed = Number(normalized);
+      return Number.isNaN(parsed) ? NaN : parsed;
+    }
+    return value;
+  }, z.number())
+  .refine((value) => Number.isFinite(value), {
+    message: '金額を数値で入力してください',
+  })
+  .refine((value) => value > 0, {
+    message: '金額は1円以上で入力してください',
+  });
+
 export const transactionSchema = z
   .object({
     /** 取引タイプ */
     type: transactionTypeEnum,
     /** 金額 */
-    amount: z.coerce
-      .number({
-        invalid_type_error: '金額を数値で入力してください',
-      })
-      .positive('金額は1円以上で入力してください'),
+    amount: amountSchema,
     /** 発生日 */
     occurredOn: z
       .string()
@@ -83,7 +102,7 @@ export const transactionSchema = z
       .optional()
       .nullable(),
     /** 家庭向け立替フラグ */
-    isHouseholdAdvance: z.boolean().optional().default(false),
+    isHouseholdAdvance: z.boolean().default(false),
     /** 支払者 */
     payerUserId: z
       .string()

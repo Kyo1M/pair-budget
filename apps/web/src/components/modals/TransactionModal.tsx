@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, type Resolver, type SubmitHandler, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -94,7 +94,7 @@ export function TransactionModal({
     watch,
     formState: { errors },
   } = useForm<TransactionFormData>({
-    resolver: zodResolver(transactionSchema),
+    resolver: zodResolver(transactionSchema) as Resolver<TransactionFormData>,
     defaultValues: {
       type: defaultType,
       amount: 0,
@@ -164,7 +164,7 @@ export function TransactionModal({
   /**
    * フォーム送信
    */
-  const onSubmit = async (data: TransactionFormData) => {
+  const onSubmit: SubmitHandler<TransactionFormData> = async (data) => {
     try {
       const transaction = await addTransaction(toTransactionData(data, householdId));
 

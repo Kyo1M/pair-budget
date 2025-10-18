@@ -8,7 +8,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -26,6 +26,9 @@ import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { MonthlyCategoryBreakdown } from '@/components/dashboard/MonthlyCategoryBreakdown';
+import { YearlySummaryCards } from '@/components/dashboard/YearlySummaryCards';
+import { YearlyBalanceChart } from '@/components/dashboard/YearlyBalanceChart';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Fab, type FabAction } from '@/components/ui/Fab';
 import { Button } from '@/components/ui/button';
 import { HOUSEHOLD_SETTLEMENT_KEY } from '@/lib/validations/settlement';
@@ -34,6 +37,7 @@ import { useHouseholdStore } from '@/store/useHouseholdStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
 import { useDashboardStore } from '@/store/useDashboardStore';
 import { useSettlementStore } from '@/store/useSettlementStore';
+import { useYearlyDashboardStore } from '@/store/useYearlyDashboardStore';
 import type { Transaction, TransactionType } from '@/types/transaction';
 
 /**
@@ -74,6 +78,15 @@ export default function Home() {
   const dashboardError = useDashboardStore((state) => state.error);
   const clearDashboardError = useDashboardStore((state) => state.clearError);
 
+  const yearlySummary = useYearlyDashboardStore((state) => state.summary);
+  const yearlyDifferences = useYearlyDashboardStore((state) => state.monthlyDifferences);
+  const selectedYear = useYearlyDashboardStore((state) => state.selectedYear);
+  const setSelectedYear = useYearlyDashboardStore((state) => state.setSelectedYear);
+  const loadYearlySummary = useYearlyDashboardStore((state) => state.loadYearlySummary);
+  const yearlyLoading = useYearlyDashboardStore((state) => state.isLoading);
+  const yearlyError = useYearlyDashboardStore((state) => state.error);
+  const clearYearlyError = useYearlyDashboardStore((state) => state.clearError);
+
   const balances = useSettlementStore((state) => state.balances);
   const loadBalances = useSettlementStore((state) => state.loadBalances);
   const loadSettlements = useSettlementStore((state) => state.loadSettlements);
@@ -90,6 +103,7 @@ export default function Home() {
     partnerId: string;
     direction: 'pay' | 'receive';
   } | null>(null);
+  const [activeView, setActiveView] = useState<'monthly' | 'yearly'>('monthly');
 
   /**
    * 世帯情報を初期取得
@@ -162,6 +176,13 @@ export default function Home() {
   }, [dashboardError, clearDashboardError]);
 
   useEffect(() => {
+    if (yearlyError) {
+      toast.error(yearlyError);
+      clearYearlyError();
+    }
+  }, [yearlyError, clearYearlyError]);
+
+  useEffect(() => {
     if (settlementError) {
       toast.error(settlementError);
       clearSettlementError();
@@ -188,6 +209,8 @@ export default function Home() {
    */
   const handlePrevMonth = () => setSelectedMonth(shiftMonth(selectedMonth, -1));
   const handleNextMonth = () => setSelectedMonth(shiftMonth(selectedMonth, 1));
+  const handlePrevYear = () => setSelectedYear(selectedYear - 1);
+  const handleNextYear = () => setSelectedYear(selectedYear + 1);
 
   /**
    * 取引モーダル表示
@@ -206,6 +229,10 @@ export default function Home() {
     }
 
     await loadMonthlySummary(household.id, selectedMonth);
+
+    if (activeView === 'yearly') {
+      await loadYearlySummary(household.id, selectedYear);
+    }
 
     if (transaction.type === 'advance') {
       await loadBalances(household.id);
@@ -234,6 +261,27 @@ export default function Home() {
       setSettlementTarget(null);
     }
   };
+
+  useEffect(() => {
+    if (!household) {
+      return;
+    }
+
+    if (activeView !== 'yearly') {
+      return;
+    }
+
+    void loadYearlySummary(household.id, selectedYear).catch((error) => {
+      console.error('年次データ読み込みエラー:', error);
+    });
+  }, [household, activeView, selectedYear, loadYearlySummary]);
+
+  const handleViewChange = (value: string) => {
+    const mode = value === 'yearly' ? 'yearly' : 'monthly';
+    setActiveView(mode);
+  };
+
+  const yearlyChartData = useMemo(() => yearlyDifferences, [yearlyDifferences]);
 
   /**
    * FAB のアクション
@@ -310,32 +358,50 @@ export default function Home() {
       <DashboardHeader
         householdName={household.name}
         userEmail={user?.email ?? undefined}
+        viewMode={activeView}
         selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
         onPrevMonth={handlePrevMonth}
         onNextMonth={handleNextMonth}
+        onPrevYear={handlePrevYear}
+        onNextYear={handleNextYear}
         onShare={isOwner ? () => setIsShareModalOpen(true) : undefined}
         onSignOut={handleSignOut}
         isOwner={isOwner}
       />
 
       <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
-        <SummaryCards summary={summary} isLoading={summaryLoading || transactionsLoading} />
+        <Tabs value={activeView} onValueChange={handleViewChange} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 md:w-auto">
+            <TabsTrigger value="monthly">月次ビュー</TabsTrigger>
+            <TabsTrigger value="yearly">年次ビュー</TabsTrigger>
+          </TabsList>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <MonthlyCategoryBreakdown
-            transactions={transactions}
-            isLoading={transactionsLoading}
-          />
-          <BalanceCard
-            balances={balances}
-            currentUserId={user?.id}
-            isLoading={balancesLoading}
-            highlights={balanceHighlights}
-            onSelectSettlementTarget={openSettlementModal}
-          />
-        </div>
+          <TabsContent value="monthly" className="space-y-6">
+            <SummaryCards summary={summary} isLoading={summaryLoading || transactionsLoading} />
 
-        <RecentTransactions transactions={recentTransactions} isLoading={recentLoading} />
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <MonthlyCategoryBreakdown
+                transactions={transactions}
+                isLoading={transactionsLoading}
+              />
+              <BalanceCard
+                balances={balances}
+                currentUserId={user?.id}
+                isLoading={balancesLoading}
+                highlights={balanceHighlights}
+                onSelectSettlementTarget={openSettlementModal}
+              />
+            </div>
+
+            <RecentTransactions transactions={recentTransactions} isLoading={recentLoading} />
+          </TabsContent>
+
+          <TabsContent value="yearly" className="space-y-6">
+            <YearlySummaryCards summary={yearlySummary} isLoading={yearlyLoading} />
+            <YearlyBalanceChart data={yearlyChartData} isLoading={yearlyLoading} />
+          </TabsContent>
+        </Tabs>
       </main>
 
       <Fab actions={fabActions} />

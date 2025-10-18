@@ -53,7 +53,7 @@ export async function getHouseholdBalances(
 ): Promise<HouseholdBalance[]> {
   const supabase = createClient();
 
-  const { data, error } = await supabase.rpc('get_household_balances', {
+  const { data, error } = await (supabase as any).rpc('get_household_balances', {
     target_household: householdId,
   });
 
@@ -62,7 +62,9 @@ export async function getHouseholdBalances(
     throw new Error('立替残高の取得に失敗しました');
   }
 
-  return (data ?? []).map((item: BalanceRow) => ({
+  const rows = (data ?? []) as BalanceRow[];
+
+  return rows.map((item) => ({
     userId: item.user_id,
     userName: item.user_name,
     balanceAmount:
@@ -134,9 +136,9 @@ export async function createSettlement(input: SettlementData): Promise<Settlemen
     created_by: sessionUserId,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('settlements')
-    .insert(payload)
+    .insert([payload])
     .select(SETTLEMENT_SELECT)
     .single();
 

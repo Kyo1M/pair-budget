@@ -47,11 +47,28 @@ export const settlementSchema = z.object({
   /** 相手ユーザーID */
   partnerUserId: partnerSelectionSchema,
   /** 金額 */
-  amount: z.coerce
-    .number({
-      invalid_type_error: '金額を数値で入力してください',
+  amount: z
+    .preprocess((value) => {
+      if (typeof value === 'number') {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed === '') {
+          return NaN;
+        }
+        const normalized = trimmed.replace(/,/g, '');
+        const parsed = Number(normalized);
+        return Number.isNaN(parsed) ? NaN : parsed;
+      }
+      return value;
+    }, z.number())
+    .refine((value) => Number.isFinite(value), {
+      message: '金額を数値で入力してください',
     })
-    .positive('金額は1円以上で入力してください'),
+    .refine((value) => value > 0, {
+      message: '金額は1円以上で入力してください',
+    }),
   /** 精算日 */
   settledOn: z
     .string()

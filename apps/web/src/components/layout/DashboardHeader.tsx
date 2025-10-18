@@ -17,12 +17,20 @@ interface DashboardHeaderProps {
   householdName: string;
   /** ユーザーのメールアドレス */
   userEmail?: string;
+  /** 表示モード */
+  viewMode: 'monthly' | 'yearly';
   /** 選択中の月 (YYYY-MM) */
-  selectedMonth: string;
+  selectedMonth?: string;
+  /** 選択中の年 */
+  selectedYear?: number;
   /** 前月へ移動 */
-  onPrevMonth: () => void;
+  onPrevMonth?: () => void;
   /** 次月へ移動 */
-  onNextMonth: () => void;
+  onNextMonth?: () => void;
+  /** 前年へ移動 */
+  onPrevYear?: () => void;
+  /** 次年へ移動 */
+  onNextYear?: () => void;
   /** 参加コード共有アクション */
   onShare?: () => void;
   /** ログアウトアクション */
@@ -48,9 +56,13 @@ function formatMonthLabel(month: string): string {
 export function DashboardHeader({
   householdName,
   userEmail,
+  viewMode,
   selectedMonth,
+  selectedYear,
   onPrevMonth,
   onNextMonth,
+  onPrevYear,
+  onNextYear,
   onShare,
   onSignOut,
   isOwner,
@@ -66,29 +78,55 @@ export function DashboardHeader({
         </div>
 
         <div className="flex flex-col items-stretch gap-3 md:flex-row md:items-center">
-          <div className="flex items-center justify-center gap-2 rounded-full border px-3 py-1.5">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onPrevMonth}
-              aria-label="前の月へ"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="min-w-[120px] text-center text-sm font-semibold">
-              {formatMonthLabel(selectedMonth)}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onNextMonth}
-              aria-label="次の月へ"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          {viewMode === 'monthly' ? (
+            <div className="flex items-center justify-center gap-2 rounded-full border px-3 py-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onPrevMonth}
+                aria-label="前の月へ"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-[120px] text-center text-sm font-semibold">
+                {selectedMonth ? formatMonthLabel(selectedMonth) : '----'}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onNextMonth}
+                aria-label="次の月へ"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 rounded-full border px-3 py-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onPrevYear}
+                aria-label="前年へ"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-[120px] text-center text-sm font-semibold">
+                {selectedYear ? `${selectedYear}年` : '----'}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onNextYear}
+                aria-label="翌年へ"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2">
             {isOwner && onShare && (
