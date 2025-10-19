@@ -7,6 +7,7 @@
 'use client';
 
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EXPENSE_CATEGORY_CHART_COLORS } from '@/constants/categories';
 import { calculateExpenseCategoryBreakdown } from '@/lib/dashboard';
@@ -31,16 +32,37 @@ function formatPercent(ratio: number): string {
 /**
  * チャートのツールチップ
  */
-function ChartTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
+type BreakdownTooltipPayload = {
+  label: string;
+  amount: number;
+  ratio: number;
+  value: number;
+};
+
+function isBreakdownTooltipPayload(data: unknown): data is BreakdownTooltipPayload {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  const candidate = data as Record<string, unknown>;
+  return (
+    typeof candidate.label === 'string' &&
+    typeof candidate.amount === 'number' &&
+    typeof candidate.ratio === 'number' &&
+    typeof candidate.value === 'number'
+  );
+}
+
+function ChartTooltip({ active, payload }: TooltipProps<number, string>) {
   if (!active || !payload || payload.length === 0) {
     return null;
   }
 
-  const data = payload[0]?.payload as {
-    label: string;
-    amount: number;
-    ratio: number;
-  };
+  const data = payload[0]?.payload;
+
+  if (!isBreakdownTooltipPayload(data)) {
+    return null;
+  }
 
   return (
     <div className="rounded border bg-white px-3 py-2 text-sm shadow-sm">
@@ -116,7 +138,7 @@ export function MonthlyCategoryBreakdown({
     );
   }
 
-  const chartData = items.map((item) => ({
+  const chartData: Array<BreakdownTooltipPayload & { name: string; color: string }> = items.map((item) => ({
     name: item.category.label,
     label: item.category.label,
     value: item.amount,
