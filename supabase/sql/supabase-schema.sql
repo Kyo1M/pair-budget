@@ -173,6 +173,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+  IF NOT public.is_household_member(target_household) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
   RETURN QUERY
   WITH advance_payments AS (
     -- 立替支払い（自分が立て替えた分）
@@ -331,11 +335,14 @@ DROP POLICY IF EXISTS "Users can create households" ON public.households;
 CREATE POLICY "Users can create households" ON public.households
   FOR INSERT
   TO authenticated
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = owner_user_id);
 
 DROP POLICY IF EXISTS "Household owners can update household" ON public.households;
 CREATE POLICY "Household owners can update household" ON public.households
   FOR UPDATE USING (
+    public.is_household_owner(households.id)
+  )
+  WITH CHECK (
     public.is_household_owner(households.id)
   );
 
@@ -357,6 +364,9 @@ DROP POLICY IF EXISTS "Household owners can update members" ON public.household_
 CREATE POLICY "Household owners can update members" ON public.household_members
   FOR UPDATE USING (
     public.is_household_owner(household_members.household_id)
+  )
+  WITH CHECK (
+    public.is_household_owner(household_members.household_id)
   );
 
 DROP POLICY IF EXISTS "Household owners can remove members" ON public.household_members;
@@ -368,6 +378,7 @@ CREATE POLICY "Household owners can remove members" ON public.household_members
 -- household_join_codes
 DROP POLICY IF EXISTS "Household owners manage join codes" ON public.household_join_codes;
 CREATE POLICY "Household owners manage join codes" ON public.household_join_codes
+  FOR ALL
   USING (
     public.is_household_owner(household_join_codes.household_id)
   )
@@ -377,10 +388,25 @@ CREATE POLICY "Household owners manage join codes" ON public.household_join_code
 
 DROP POLICY IF EXISTS "Authenticated users can use active join codes" ON public.household_join_codes;
 CREATE POLICY "Authenticated users can use active join codes" ON public.household_join_codes
-  FOR SELECT USING (
+  FOR SELECT
+  TO authenticated
+  USING (
     auth.uid() IS NOT NULL
     AND household_join_codes.status = 'active'
     AND household_join_codes.expires_at > NOW()
+  );
+
+DROP POLICY IF EXISTS "Users can consume join codes" ON public.household_join_codes;
+CREATE POLICY "Users can consume join codes" ON public.household_join_codes
+  FOR UPDATE
+  TO authenticated
+  USING (
+    household_join_codes.status = 'active'
+    AND household_join_codes.expires_at > NOW()
+  )
+  WITH CHECK (
+    auth.uid() = household_join_codes.used_by
+    AND household_join_codes.status = 'used'
   );
 
 -- transactions
@@ -394,19 +420,22 @@ DROP POLICY IF EXISTS "Household members can insert transactions" ON public.tran
 CREATE POLICY "Household members can insert transactions" ON public.transactions
   FOR INSERT WITH CHECK (
     public.is_household_member(transactions.household_id)
-    AND auth.uid() = created_by
+    AND auth.uid() = transactions.created_by
   );
 
 DROP POLICY IF EXISTS "Creators can update transactions" ON public.transactions;
 CREATE POLICY "Creators can update transactions" ON public.transactions
   FOR UPDATE USING (
-    auth.uid() = created_by
+    auth.uid() = transactions.created_by
+  )
+  WITH CHECK (
+    auth.uid() = transactions.created_by
   );
 
 DROP POLICY IF EXISTS "Creators can delete transactions" ON public.transactions;
 CREATE POLICY "Creators can delete transactions" ON public.transactions
   FOR DELETE USING (
-    auth.uid() = created_by
+    auth.uid() = transactions.created_by
   );
 
 -- settlements
@@ -420,13 +449,13 @@ DROP POLICY IF EXISTS "Household members can insert settlements" ON public.settl
 CREATE POLICY "Household members can insert settlements" ON public.settlements
   FOR INSERT WITH CHECK (
     public.is_household_member(settlements.household_id)
-    AND auth.uid() = created_by
+    AND auth.uid() = settlements.created_by
   );
 
 DROP POLICY IF EXISTS "Creators can delete settlements" ON public.settlements;
 CREATE POLICY "Creators can delete settlements" ON public.settlements
   FOR DELETE USING (
-    auth.uid() = created_by
+    auth.uid() = settlements.created_by
   );
 
 ----------------------------
