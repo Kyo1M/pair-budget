@@ -228,7 +228,7 @@ export async function createTransaction(input: TransactionData): Promise<Transac
     created_by: session.user.id,
   };
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('transactions')
     .insert([payload])
     .select(TRANSACTION_SELECT)
