@@ -183,7 +183,10 @@ export function YearlyBalanceChart({ data, isLoading, defaultMetric = 'balance' 
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(59,130,246,0.1)' }} />
+            <Tooltip
+              content={(props) => <ChartTooltip {...props} />}
+              cursor={{ fill: 'rgba(59,130,246,0.1)' }}
+            />
             <Bar dataKey="value" name={getBarLabel(metric)} radius={[4, 4, 0, 0]}>
               {chartData.map((item) => (
                 <Cell key={`cell-${item.month}`} fill={getBarColor(metric, item.value)} />
