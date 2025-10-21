@@ -57,10 +57,13 @@ export async function getHouseholdBalances(
     target_household: householdId,
   } satisfies Database['public']['Functions']['get_household_balances']['Args'];
 
-  const { data, error } = await supabase.rpc(
+  // supabase-js 2.75 ではジェネリクス未指定だと Args が undefined 推論になるため明示する
+  const { data, error } = await supabase.rpc<
     'get_household_balances',
-    // Supabase JS 2.75 incorrectly infers Args as undefined; cast until fixed upstream.
-    rpcArgs as unknown as Database['public']['Functions']['get_household_balances']['Args']
+    Database['public']['Functions']['get_household_balances']['Args']
+  >(
+    'get_household_balances',
+    rpcArgs
   );
 
   if (error) {
