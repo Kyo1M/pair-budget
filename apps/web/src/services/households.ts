@@ -32,6 +32,10 @@ export async function createHousehold(name: string): Promise<Household> {
   const userId = session.user.id;
 
   console.log('世帯作成開始:', { userId, householdName: name });
+  console.log('セッション情報:', {
+    accessToken: session.access_token ? '存在する' : '存在しない',
+    expiresAt: session.expires_at,
+  });
 
   // owner_user_idを明示的に設定してRLS問題を回避
   const { data, error } = await supabase
@@ -42,6 +46,12 @@ export async function createHousehold(name: string): Promise<Household> {
     } as any)
     .select()
     .single();
+
+  console.log('リクエスト後の詳細:', {
+    hasData: !!data,
+    hasError: !!error,
+    errorCode: error?.code,
+  });
 
   if (error) {
     console.error('世帯作成エラー:', {
