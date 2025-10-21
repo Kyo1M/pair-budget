@@ -58,6 +58,7 @@ export async function getHouseholdBalances(
   };
 
   // RPC関数を呼び出し (@supabase/ssr型定義の問題により型アサーション使用)
+  // TODO: Supabase CLIで型定義を自動生成し、as anyを削除する (チケット: PB-66)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any).rpc(
     'get_household_balances',
@@ -144,6 +145,7 @@ export async function createSettlement(input: SettlementData): Promise<Settlemen
   };
 
   // @supabase/ssr型定義の問題により型アサーション使用
+  // TODO: Supabase CLIで型定義を自動生成し、as anyを削除する (チケット: PB-66)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('settlements')
