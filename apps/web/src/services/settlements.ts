@@ -53,9 +53,15 @@ export async function getHouseholdBalances(
 ): Promise<HouseholdBalance[]> {
   const supabase = createClient();
 
-  const { data, error } = await supabase.rpc('get_household_balances', {
+  const rpcArgs = {
     target_household: householdId,
-  });
+  } satisfies Database['public']['Functions']['get_household_balances']['Args'];
+
+  const { data, error } = await supabase.rpc(
+    'get_household_balances',
+    // Supabase JS 2.75 incorrectly infers Args as undefined; cast until fixed upstream.
+    rpcArgs as unknown as Database['public']['Functions']['get_household_balances']['Args']
+  );
 
   if (error) {
     console.error('立替残高取得エラー:', error);
