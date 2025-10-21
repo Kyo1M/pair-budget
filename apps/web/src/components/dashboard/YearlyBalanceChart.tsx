@@ -183,7 +183,7 @@ export function YearlyBalanceChart({ data, isLoading, defaultMetric = 'balance' 
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip
+            <Tooltip<number, string>
               content={(props) => <ChartTooltip {...props} />}
               cursor={{ fill: 'rgba(59,130,246,0.1)' }}
             />

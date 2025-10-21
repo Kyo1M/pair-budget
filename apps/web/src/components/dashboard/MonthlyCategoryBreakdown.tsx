@@ -159,7 +159,7 @@ export function MonthlyCategoryBreakdown({
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Tooltip content={(props) => <ChartTooltip {...props} />} />
+              <Tooltip<number, string> content={(props) => <ChartTooltip {...props} />} />
               <Pie
                 data={chartData}
                 dataKey="value"
