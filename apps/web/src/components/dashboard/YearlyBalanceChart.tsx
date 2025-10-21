@@ -19,7 +19,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { MonthlyDifference } from '@/store/useYearlyDashboardStore';
 import type { TooltipContentProps } from 'recharts';
-import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 
 const currencyFormatter = new Intl.NumberFormat('ja-JP', {
   style: 'currency',
@@ -54,7 +53,7 @@ function isTooltipPayload(data: unknown): data is TooltipPayload {
   );
 }
 
-function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameType>) {
+function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) {
   if (!active || !payload || payload.length === 0) {
     return null;
   }
@@ -184,7 +183,7 @@ export function YearlyBalanceChart({ data, isLoading, defaultMetric = 'balance' 
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip
+            <Tooltip<number, string>
               content={(props) => <ChartTooltip {...props} />}
               cursor={{ fill: 'rgba(59,130,246,0.1)' }}
             />

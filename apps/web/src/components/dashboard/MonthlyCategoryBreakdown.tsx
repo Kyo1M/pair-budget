@@ -8,7 +8,6 @@
 
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import type { TooltipContentProps } from 'recharts';
-import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EXPENSE_CATEGORY_CHART_COLORS } from '@/constants/categories';
 import { calculateExpenseCategoryBreakdown } from '@/lib/dashboard';
@@ -54,7 +53,7 @@ function isBreakdownTooltipPayload(data: unknown): data is BreakdownTooltipPaylo
   );
 }
 
-function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameType>) {
+function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) {
   if (!active || !payload || payload.length === 0) {
     return null;
   }
@@ -160,7 +159,7 @@ export function MonthlyCategoryBreakdown({
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Tooltip content={(props) => <ChartTooltip {...props} />} />
+              <Tooltip<number, string> content={(props) => <ChartTooltip {...props} />} />
               <Pie
                 data={chartData}
                 dataKey="value"
