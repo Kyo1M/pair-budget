@@ -6,6 +6,7 @@
  */
 
 import { createServerClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Database } from '@/types/supabase';
 
@@ -14,7 +15,7 @@ import type { Database } from '@/types/supabase';
  * 
  * @returns Supabaseクライアントインスタンス
  */
-export async function createClient() {
+export async function createClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
@@ -36,6 +37,6 @@ export async function createClient() {
         },
       },
     }
-  );
+  ) as unknown as SupabaseClient<Database>;
 }
 

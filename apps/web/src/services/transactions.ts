@@ -228,7 +228,9 @@ export async function createTransaction(input: TransactionData): Promise<Transac
     created_by: session.user.id,
   };
 
-  const { data, error } = await supabase
+  // @supabase/ssr型定義の問題により型アサーション使用
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('transactions')
     .insert([payload])
     .select(TRANSACTION_SELECT)

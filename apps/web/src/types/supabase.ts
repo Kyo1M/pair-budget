@@ -210,11 +210,11 @@ export type Database = {
         Args: {
           target_household: string;
         };
-        Returns: {
+        Returns: Array<{
           user_id: string;
           user_name: string | null;
           balance_amount: number;
-        }[];
+        }>;
       };
     };
     Enums: {

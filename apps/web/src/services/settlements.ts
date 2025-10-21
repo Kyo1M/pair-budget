@@ -55,13 +55,11 @@ export async function getHouseholdBalances(
 
   const rpcArgs = {
     target_household: householdId,
-  } satisfies Database['public']['Functions']['get_household_balances']['Args'];
+  };
 
-  // supabase-js 2.75 ではジェネリクス未指定だと Args が undefined 推論になるため明示する
-  const { data, error } = await supabase.rpc<
-    'get_household_balances',
-    Database['public']['Functions']['get_household_balances']['Args']
-  >(
+  // RPC関数を呼び出し (@supabase/ssr型定義の問題により型アサーション使用)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc(
     'get_household_balances',
     rpcArgs
   );
@@ -145,7 +143,9 @@ export async function createSettlement(input: SettlementData): Promise<Settlemen
     created_by: sessionUserId,
   };
 
-  const { data, error } = await supabase
+  // @supabase/ssr型定義の問題により型アサーション使用
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('settlements')
     .insert([payload])
     .select(SETTLEMENT_SELECT)
