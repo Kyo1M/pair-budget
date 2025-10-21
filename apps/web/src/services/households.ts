@@ -38,7 +38,7 @@ export async function createHousehold(name: string): Promise<Household> {
   });
 
   // owner_user_idを明示的に設定してRLS問題を回避
-  const { data, error } = await supabase
+  const { data: householdData, error: householdError } = await supabase
     .from('households')
     .insert({
       name,
@@ -47,30 +47,48 @@ export async function createHousehold(name: string): Promise<Household> {
     .select()
     .single();
 
-  console.log('リクエスト後の詳細:', {
-    hasData: !!data,
-    hasError: !!error,
-    errorCode: error?.code,
+  console.log('世帯作成リクエスト後の詳細:', {
+    hasData: !!householdData,
+    hasError: !!householdError,
+    errorCode: householdError?.code,
   });
 
-  if (error) {
+  if (householdError) {
     console.error('世帯作成エラー:', {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
+      message: householdError.message,
+      details: householdError.details,
+      hint: householdError.hint,
+      code: householdError.code,
     });
-    throw new Error(`世帯の作成に失敗しました: ${error.message || '不明なエラー'}`);
+    throw new Error(`世帯の作成に失敗しました: ${householdError.message || '不明なエラー'}`);
   }
 
-  console.log('世帯作成成功:', data);
+  console.log('世帯作成成功:', householdData);
+
+  // オーナーをhousehold_membersに追加
+  const { error: memberError } = await supabase
+    .from('household_members')
+    .insert({
+      household_id: (householdData as any).id,
+      user_id: userId,
+      role: 'owner',
+    } as any);
+
+  if (memberError) {
+    console.error('メンバー追加エラー:', memberError);
+    // 世帯は作成されているが、メンバー追加に失敗した場合は世帯を削除
+    await supabase.from('households').delete().eq('id', (householdData as any).id);
+    throw new Error(`世帯メンバーの追加に失敗しました: ${memberError.message || '不明なエラー'}`);
+  }
+
+  console.log('世帯メンバー追加成功');
 
   return {
-    id: (data as any).id,
-    name: (data as any).name,
-    ownerUserId: (data as any).owner_user_id,
-    createdAt: (data as any).created_at,
-    updatedAt: (data as any).updated_at,
+    id: (householdData as any).id,
+    name: (householdData as any).name,
+    ownerUserId: (householdData as any).owner_user_id,
+    createdAt: (householdData as any).created_at,
+    updatedAt: (householdData as any).updated_at,
   };
 }
 
