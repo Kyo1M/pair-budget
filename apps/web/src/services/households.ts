@@ -65,24 +65,6 @@ export async function createHousehold(name: string): Promise<Household> {
 
   console.log('世帯作成成功:', householdData);
 
-  // オーナーをhousehold_membersに追加
-  const { error: memberError } = await supabase
-    .from('household_members')
-    .insert({
-      household_id: (householdData as any).id,
-      user_id: userId,
-      role: 'owner',
-    } as any);
-
-  if (memberError) {
-    console.error('メンバー追加エラー:', memberError);
-    // 世帯は作成されているが、メンバー追加に失敗した場合は世帯を削除
-    await supabase.from('households').delete().eq('id', (householdData as any).id);
-    throw new Error(`世帯メンバーの追加に失敗しました: ${memberError.message || '不明なエラー'}`);
-  }
-
-  console.log('世帯メンバー追加成功');
-
   return {
     id: (householdData as any).id,
     name: (householdData as any).name,
