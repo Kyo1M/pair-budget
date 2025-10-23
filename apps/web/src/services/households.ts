@@ -37,28 +37,39 @@ export async function createHousehold(name: string): Promise<Household> {
     expiresAt: session.expires_at,
   });
 
-  const { data: householdData, error: householdError } = await supabase
-    .from('households')
-    .insert({
-      name,
-    } as any)
-    .select()
-    .single();
+  // 新しい関数を使用して世帯作成とオーナーのメンバー追加を一括実行
+  const { data: householdId, error: functionError } = await supabase
+    .rpc('create_household_with_owner', {
+      household_name: name,
+      owner_user_id: userId,
+    } as any);
 
-  console.log('世帯作成リクエスト後の詳細:', {
-    hasData: !!householdData,
-    hasError: !!householdError,
-    errorCode: householdError?.code,
+  console.log('世帯作成関数実行後の詳細:', {
+    hasData: !!householdId,
+    hasError: !!functionError,
+    errorCode: functionError?.code,
   });
 
-  if (householdError) {
+  if (functionError) {
     console.error('世帯作成エラー:', {
-      message: householdError.message,
-      details: householdError.details,
-      hint: householdError.hint,
-      code: householdError.code,
+      message: functionError.message,
+      details: functionError.details,
+      hint: functionError.hint,
+      code: functionError.code,
     });
-    throw new Error(`世帯の作成に失敗しました: ${householdError.message || '不明なエラー'}`);
+    throw new Error(`世帯の作成に失敗しました: ${functionError.message || '不明なエラー'}`);
+  }
+
+  // 作成された世帯情報を取得
+  const { data: householdData, error: fetchError } = await supabase
+    .from('households')
+    .select('*')
+    .eq('id', householdId)
+    .single();
+
+  if (fetchError) {
+    console.error('世帯情報取得エラー:', fetchError);
+    throw new Error('世帯情報の取得に失敗しました');
   }
 
   console.log('世帯作成成功:', householdData);

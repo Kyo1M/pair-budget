@@ -289,6 +289,13 @@ GRANT EXECUTE ON FUNCTION public.is_household_member(UUID) TO authenticated, ser
 GRANT EXECUTE ON FUNCTION public.is_household_owner(UUID) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_household_balances(UUID) TO authenticated, service_role;
 
+GRANT SELECT, UPDATE ON public.profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.households TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.household_members TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.household_join_codes TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.transactions TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.settlements TO authenticated;
+
 ----------------------------
 -- 8. Row Level Security Policies
 ----------------------------
