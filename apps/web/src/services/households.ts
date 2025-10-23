@@ -37,12 +37,10 @@ export async function createHousehold(name: string): Promise<Household> {
     expiresAt: session.expires_at,
   });
 
-  // owner_user_idを明示的に設定してRLS問題を回避
   const { data: householdData, error: householdError } = await supabase
     .from('households')
     .insert({
       name,
-      owner_user_id: userId,
     } as any)
     .select()
     .single();
