@@ -197,7 +197,8 @@ export async function consumeJoinCode(
 
   if (memberError) {
     console.error('メンバー追加エラー:', memberError);
-    throw new Error('世帯への参加に失敗しました');
+    console.error('エラー詳細:', JSON.stringify(memberError, null, 2));
+    throw new Error(`世帯への参加に失敗しました: ${memberError.message || '不明なエラー'}`);
   }
 
   // コードを used ステータスに更新
@@ -212,8 +213,10 @@ export async function consumeJoinCode(
 
   if (updateError) {
     console.error('コード更新エラー:', updateError);
+    console.error('エラー詳細:', JSON.stringify(updateError, null, 2));
     // メンバー追加は成功しているので、警告のみ
     console.warn('参加コードのステータス更新に失敗しましたが、世帯への参加は完了しています');
+    // エラーを再スローしない（世帯参加は成功しているため）
   }
 
   return validation.householdId;
