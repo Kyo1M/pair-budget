@@ -241,7 +241,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NEW.owner_user_id IS NULL AND auth.uid() IS NOT NULL THEN
+  IF auth.uid() IS NOT NULL THEN
     NEW.owner_user_id := auth.uid();
   END IF;
   RETURN NEW;
@@ -320,7 +320,7 @@ DROP POLICY IF EXISTS "Users can create households" ON public.households;
 CREATE POLICY "Users can create households" ON public.households
   FOR INSERT
   TO authenticated
-  WITH CHECK (auth.uid() = owner_user_id);
+  WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Household owners can update household" ON public.households;
 CREATE POLICY "Household owners can update household" ON public.households
