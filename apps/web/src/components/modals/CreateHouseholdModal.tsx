@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +51,9 @@ export function CreateHouseholdModal({
   const user = useAuthStore((state) => state.user);
   const createHousehold = useHouseholdStore((state) => state.createHousehold);
   const [isLoading, setIsLoading] = useState(false);
+
+  // モーダルが開いている間、bodyスクロールを無効化
+  useBodyScrollLock(open);
 
   const {
     register,

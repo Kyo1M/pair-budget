@@ -8,6 +8,7 @@ import { useEffect, useMemo } from 'react';
 import { type Resolver, type SubmitHandler, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,9 @@ export function SettlementModal({
   const balances = useSettlementStore((state) => state.balances);
   const addSettlement = useSettlementStore((state) => state.addSettlement);
   const isSubmitting = useSettlementStore((state) => state.isSubmitting);
+
+  // モーダルが開いている間、bodyスクロールを無効化
+  useBodyScrollLock(open);
 
   const partnerOptions = useMemo(() => {
     const householdOption = {

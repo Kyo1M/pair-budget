@@ -8,6 +8,7 @@ import { useEffect, useMemo } from 'react';
 import { Controller, type Resolver, type SubmitHandler, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -79,6 +80,9 @@ export function TransactionModal({
   const currentUser = useAuthStore((state) => state.user);
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   const isSubmitting = useTransactionStore((state) => state.isSubmitting);
+
+  // モーダルが開いている間、bodyスクロールを無効化
+  useBodyScrollLock(open);
 
   const getDefaultCategoryForType = (type: TransactionType) => {
     const categories = getCategoriesByType(type);
