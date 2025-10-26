@@ -6,6 +6,7 @@ import {
   Baby,
   Briefcase,
   BriefcaseMedical,
+  Car,
   HandCoins,
   Home,
   ShoppingBag,
@@ -68,6 +69,13 @@ export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
     types: ['expense', 'advance'],
   },
   {
+    key: 'transportation',
+    label: '交通費',
+    icon: Car,
+    colorClass: 'text-blue-500',
+    types: ['expense', 'advance'],
+  },
+  {
     key: 'other',
     label: 'その他',
     icon: MoreHorizontal,
@@ -79,6 +87,13 @@ export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
     label: '給料',
     icon: Briefcase,
     colorClass: 'text-emerald-600',
+    types: ['income'],
+  },
+  {
+    key: 'sideline',
+    label: '副業',
+    icon: Briefcase,
+    colorClass: 'text-teal-600',
     types: ['income'],
   },
   {
@@ -118,7 +133,8 @@ export const EXPENSE_CATEGORY_CHART_COLORS: Record<ExpenseCategoryKey, string> =
   medical: 'var(--chart-4)',
   home: 'var(--chart-5)',
   kids: 'var(--chart-6)',
-  other: 'var(--chart-7)',
+  transportation: 'var(--chart-7)',
+  other: 'var(--chart-8)',
 };
 
 /**
