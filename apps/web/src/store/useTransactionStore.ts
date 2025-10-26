@@ -9,6 +9,7 @@ import type { Transaction, TransactionData } from '@/types/transaction';
 import {
   createTransaction as createTransactionService,
   deleteTransaction as deleteTransactionService,
+  updateTransaction as updateTransactionService,
   getRecentTransactions as getRecentTransactionsService,
   getTransactions as getTransactionsService,
 } from '@/services/transactions';
@@ -73,6 +74,8 @@ interface TransactionStore {
   loadRecentTransactions: (householdId: string, limit?: number) => Promise<void>;
   /** 取引を追加 */
   addTransaction: (data: TransactionData) => Promise<Transaction>;
+  /** 取引を更新 */
+  updateTransaction: (id: string, data: Partial<TransactionData>) => Promise<Transaction>;
   /** 取引を削除 */
   removeTransaction: (id: string) => Promise<void>;
   /** エラーをクリア */
@@ -167,6 +170,46 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
       console.error('取引追加エラー:', error);
       set({
         error: error instanceof Error ? error.message : '取引の作成に失敗しました',
+        isSubmitting: false,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * 取引を更新
+   */
+  updateTransaction: async (id: string, data: Partial<TransactionData>) => {
+    try {
+      set({ isSubmitting: true, error: null });
+      const updatedTransaction = await updateTransactionService(id, data);
+
+      set((state) => {
+        const monthKey = extractMonth(updatedTransaction.occurredOn);
+        const shouldIncludeInCurrent = state.currentMonth === monthKey;
+
+        // 取引一覧を更新
+        const updatedTransactions = shouldIncludeInCurrent
+          ? state.transactions.map((t) => (t.id === id ? updatedTransaction : t))
+          : state.transactions.filter((t) => t.id !== id);
+
+        // 最近の取引も更新
+        const updatedRecent = state.recentTransactions.map((t) =>
+          t.id === id ? updatedTransaction : t
+        );
+
+        return {
+          transactions: shouldIncludeInCurrent ? sortTransactionsDesc(updatedTransactions) : updatedTransactions,
+          recentTransactions: updatedRecent,
+          isSubmitting: false,
+        };
+      });
+
+      return updatedTransaction;
+    } catch (error) {
+      console.error('取引更新エラー:', error);
+      set({
+        error: error instanceof Error ? error.message : '取引の更新に失敗しました',
         isSubmitting: false,
       });
       throw error;

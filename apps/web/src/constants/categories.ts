@@ -151,13 +151,14 @@ export function getCategoriesByType(type: TransactionType): TransactionCategory[
  * カテゴリを取得
  * 
  * @param key - カテゴリキー
- * @returns カテゴリ情報（見つからない場合は「その他」）
+ * @returns カテゴリ情報（見つからない場合は最初のカテゴリ）
  */
 export function getTransactionCategory(
   key: TransactionCategoryKey | null | undefined
 ): TransactionCategory {
   if (!key || !(key in TRANSACTION_CATEGORY_MAP)) {
-    return TRANSACTION_CATEGORY_MAP.other;
+    // キーが見つからない場合は最初のカテゴリを返す
+    return TRANSACTION_CATEGORIES[0];
   }
   return TRANSACTION_CATEGORY_MAP[key as TransactionCategoryKey];
 }

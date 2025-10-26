@@ -45,6 +45,8 @@ interface TransactionModalProps {
   members: HouseholdMember[];
   /** デフォルトの取引タイプ */
   defaultType?: TransactionType;
+  /** 編集対象の取引（編集モード） */
+  editingTransaction?: Transaction;
   /** 取引作成成功時のコールバック */
   onSuccess?: (transaction: Transaction) => Promise<void> | void;
 }
@@ -75,14 +77,19 @@ export function TransactionModal({
   householdId,
   members,
   defaultType = 'expense',
+  editingTransaction,
   onSuccess,
 }: TransactionModalProps) {
   const currentUser = useAuthStore((state) => state.user);
   const addTransaction = useTransactionStore((state) => state.addTransaction);
+  const updateTransaction = useTransactionStore((state) => state.updateTransaction);
   const isSubmitting = useTransactionStore((state) => state.isSubmitting);
 
   // モーダルが開いている間、bodyスクロールを無効化
   useBodyScrollLock(open);
+
+  // 編集モードかどうか
+  const isEditMode = !!editingTransaction;
 
   const getDefaultCategoryForType = (type: TransactionType) => {
     const categories = getCategoriesByType(type);
@@ -128,21 +135,36 @@ export function TransactionModal({
    */
   useEffect(() => {
     if (open) {
-      reset({
-        type: defaultType,
-        amount: 0,
-        occurredOn: getToday(),
-        category: getDefaultCategoryForType(defaultType),
-        note: '',
-        isHouseholdAdvance: false,
-        payerUserId:
-          defaultType === 'expense' || defaultType === 'advance'
-            ? currentUser?.id ?? null
-            : null,
-        advanceToUserId: null,
-      });
+      if (isEditMode && editingTransaction) {
+        // 編集モード: 既存データで初期化
+        reset({
+          type: editingTransaction.type,
+          amount: editingTransaction.amount,
+          occurredOn: editingTransaction.occurredOn,
+          category: editingTransaction.category ?? getDefaultCategoryForType(editingTransaction.type),
+          note: editingTransaction.note ?? '',
+          isHouseholdAdvance: false, // 編集モードでは立替フラグは使用しない
+          payerUserId: editingTransaction.payerUserId,
+          advanceToUserId: editingTransaction.advanceToUserId,
+        });
+      } else {
+        // 新規作成モード
+        reset({
+          type: defaultType,
+          amount: 0,
+          occurredOn: getToday(),
+          category: getDefaultCategoryForType(defaultType),
+          note: '',
+          isHouseholdAdvance: false,
+          payerUserId:
+            defaultType === 'expense' || defaultType === 'advance'
+              ? currentUser?.id ?? null
+              : null,
+          advanceToUserId: null,
+        });
+      }
     }
-  }, [open, defaultType, reset, currentUser?.id]);
+  }, [open, defaultType, reset, currentUser?.id, isEditMode, editingTransaction]);
 
   /**
    * 立替以外では advanceToUserId をクリア
@@ -170,11 +192,21 @@ export function TransactionModal({
    */
   const onSubmit: SubmitHandler<TransactionFormData> = async (data) => {
     try {
-      const transaction = await addTransaction(toTransactionData(data, householdId));
+      let transaction: Transaction;
 
-      toast.success('取引を登録しました', {
-        description: `${getTypeLabel(transaction.type)}: ¥${transaction.amount.toLocaleString()}`,
-      });
+      if (isEditMode && editingTransaction) {
+        // 編集モード
+        transaction = await updateTransaction(editingTransaction.id, toTransactionData(data, householdId));
+        toast.success('取引を更新しました', {
+          description: `${getTypeLabel(transaction.type)}: ¥${transaction.amount.toLocaleString()}`,
+        });
+      } else {
+        // 新規作成モード
+        transaction = await addTransaction(toTransactionData(data, householdId));
+        toast.success('取引を登録しました', {
+          description: `${getTypeLabel(transaction.type)}: ¥${transaction.amount.toLocaleString()}`,
+        });
+      }
 
       if (onSuccess) {
         await onSuccess(transaction);
@@ -182,8 +214,9 @@ export function TransactionModal({
 
       onOpenChange(false);
     } catch (error) {
-      console.error('取引作成エラー:', error);
-      toast.error(error instanceof Error ? error.message : '取引の登録に失敗しました');
+      console.error('取引処理エラー:', error);
+      const action = isEditMode ? '更新' : '登録';
+      toast.error(error instanceof Error ? error.message : `取引の${action}に失敗しました`);
     }
   };
 
@@ -213,17 +246,19 @@ export function TransactionModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>取引を登録</DialogTitle>
+          <DialogTitle>{isEditMode ? '取引を編集' : '取引を登録'}</DialogTitle>
           <DialogDescription>
-            支出・収入・立替を記録して家計を把握しましょう
+            {isEditMode
+              ? '取引内容を編集して更新しましょう'
+              : '支出・収入・立替を記録して家計を把握しましょう'}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={transactionType} onValueChange={handleTabChange}>
           <TabsList className="w-full">
-            <TabsTrigger value="expense">支出</TabsTrigger>
-            <TabsTrigger value="income">収入</TabsTrigger>
-            <TabsTrigger value="advance">立替</TabsTrigger>
+            <TabsTrigger value="expense" disabled={isEditMode}>支出</TabsTrigger>
+            <TabsTrigger value="income" disabled={isEditMode}>収入</TabsTrigger>
+            <TabsTrigger value="advance" disabled={isEditMode}>立替</TabsTrigger>
           </TabsList>
 
           <form
@@ -405,7 +440,7 @@ export function TransactionModal({
                 キャンセル
               </Button>
               <Button type="submit" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? '保存中...' : '登録する'}
+                {isSubmitting ? '保存中...' : isEditMode ? '更新する' : '登録する'}
               </Button>
             </div>
           </form>

@@ -21,6 +21,7 @@ import { HouseholdSetupCard } from '@/components/household/HouseholdSetupCard';
 import { ShareJoinCodeModal } from '@/components/modals/ShareJoinCodeModal';
 import { TransactionModal } from '@/components/modals/TransactionModal';
 import { SettlementModal } from '@/components/modals/SettlementModal';
+import { AllTransactionsModal } from '@/components/modals/AllTransactionsModal';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
@@ -62,11 +63,9 @@ export default function Home() {
   const householdLoading = useHouseholdStore((state) => state.isLoading);
 
   const transactions = useTransactionStore((state) => state.transactions);
-  const recentTransactions = useTransactionStore((state) => state.recentTransactions);
   const loadTransactions = useTransactionStore((state) => state.loadTransactions);
   const loadRecentTransactions = useTransactionStore((state) => state.loadRecentTransactions);
   const transactionsLoading = useTransactionStore((state) => state.isLoading);
-  const recentLoading = useTransactionStore((state) => state.isRecentLoading);
   const transactionError = useTransactionStore((state) => state.error);
   const clearTransactionError = useTransactionStore((state) => state.clearError);
 
@@ -104,6 +103,8 @@ export default function Home() {
     direction: 'pay' | 'receive';
   } | null>(null);
   const [activeView, setActiveView] = useState<'monthly' | 'yearly'>('monthly');
+  const [isAllTransactionsModalOpen, setIsAllTransactionsModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>();
 
   /**
    * 世帯情報を初期取得
@@ -221,7 +222,7 @@ export default function Home() {
   };
 
   /**
-   * 取引登録成功時の処理
+   * 取引登録・更新成功時の処理
    */
   const handleTransactionSuccess = async (transaction: Transaction) => {
     if (!household) {
@@ -238,6 +239,68 @@ export default function Home() {
       await loadBalances(household.id);
     }
   };
+
+  /**
+   * 取引編集処理
+   */
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setIsTransactionModalOpen(true);
+    setIsAllTransactionsModalOpen(false);
+  };
+
+  /**
+   * 取引削除処理
+   */
+  const handleDeleteTransaction = async (transaction: Transaction) => {
+    if (!household) {
+      return;
+    }
+
+    if (!confirm(`この取引を削除してもよろしいですか？\n${transaction.note || getTypeLabel(transaction.type)}: ¥${transaction.amount.toLocaleString()}`)) {
+      return;
+    }
+
+    try {
+      const removeTransaction = useTransactionStore.getState().removeTransaction;
+      await removeTransaction(transaction.id);
+
+      toast.success('取引を削除しました');
+
+      // データ再読み込み
+      await Promise.all([
+        loadTransactions(household.id, selectedMonth),
+        loadRecentTransactions(household.id),
+        loadMonthlySummary(household.id, selectedMonth),
+      ]);
+
+      if (transaction.type === 'advance') {
+        await loadBalances(household.id);
+      }
+
+      if (activeView === 'yearly') {
+        await loadYearlySummary(household.id, selectedYear);
+      }
+    } catch (error) {
+      console.error('取引削除エラー:', error);
+      toast.error('取引の削除に失敗しました');
+    }
+  };
+
+  /**
+   * 取引タイプの表示名
+   */
+  function getTypeLabel(type: Transaction['type']): string {
+    switch (type) {
+      case 'income':
+        return '収入';
+      case 'advance':
+        return '立替';
+      case 'expense':
+      default:
+        return '支出';
+    }
+  }
 
   const currentUserBalance =
     user?.id != null
@@ -394,7 +457,12 @@ export default function Home() {
               />
             </div>
 
-            <RecentTransactions transactions={recentTransactions} isLoading={recentLoading} />
+            <RecentTransactions 
+              transactions={transactions} 
+              isLoading={transactionsLoading}
+              onEdit={handleEditTransaction}
+              onDelete={handleDeleteTransaction}
+            />
           </TabsContent>
 
           <TabsContent value="yearly" className="space-y-6">
@@ -413,10 +481,16 @@ export default function Home() {
 
       <TransactionModal
         open={isTransactionModalOpen}
-        onOpenChange={setIsTransactionModalOpen}
+        onOpenChange={(open) => {
+          setIsTransactionModalOpen(open);
+          if (!open) {
+            setEditingTransaction(undefined);
+          }
+        }}
         householdId={household.id}
         members={members}
         defaultType={transactionModalType}
+        editingTransaction={editingTransaction}
         onSuccess={handleTransactionSuccess}
       />
 
@@ -427,6 +501,15 @@ export default function Home() {
         members={members}
         initialPartnerId={settlementTarget?.partnerId}
         initialDirection={settlementTarget?.direction}
+      />
+
+      <AllTransactionsModal
+        open={isAllTransactionsModalOpen}
+        onOpenChange={setIsAllTransactionsModalOpen}
+        transactions={transactions}
+        isLoading={transactionsLoading}
+        onEdit={handleEditTransaction}
+        onDelete={handleDeleteTransaction}
       />
     </div>
   );
