@@ -38,7 +38,7 @@ function mapSettlement(row: SettlementRow): Settlement {
     settledOn: row.settled_on,
     note: row.note,
     createdBy: row.created_by,
-    createdAt: row.created_at,
+    createdAt: row.created_at || new Date().toISOString(),
   };
 }
 

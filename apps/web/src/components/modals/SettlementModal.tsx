@@ -277,6 +277,7 @@ export function SettlementModal({
                   type="number"
                   min={1}
                   step="1"
+                  placeholder="金額を入力"
                   disabled={isSubmitting || isFormDisabled}
                   {...register('amount', { valueAsNumber: true })}
                 />

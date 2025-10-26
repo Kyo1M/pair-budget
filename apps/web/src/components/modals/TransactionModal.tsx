@@ -274,7 +274,7 @@ export function TransactionModal({
                     type="number"
                     min={1}
                     step="1"
-                    placeholder="0"
+                    placeholder="金額を入力"
                     disabled={isSubmitting}
                     {...register('amount', { valueAsNumber: true })}
                   />
