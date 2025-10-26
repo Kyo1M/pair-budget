@@ -53,16 +53,24 @@ export async function getHouseholdBalances(
 ): Promise<HouseholdBalance[]> {
   const supabase = createClient();
 
-  const { data, error } = await (supabase as any).rpc('get_household_balances', {
+  const rpcArgs = {
     target_household: householdId,
-  });
+  };
+
+  // RPC関数を呼び出し (@supabase/ssr型定義の問題により型アサーション使用)
+  // TODO: Supabase CLIで型定義を自動生成し、as anyを削除する (チケット: PB-66)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc(
+    'get_household_balances',
+    rpcArgs
+  );
 
   if (error) {
     console.error('立替残高取得エラー:', error);
     throw new Error('立替残高の取得に失敗しました');
   }
 
-  const rows = (data ?? []) as BalanceRow[];
+  const rows: BalanceRow[] = data ?? [];
 
   return rows.map((item) => ({
     userId: item.user_id,
@@ -136,6 +144,9 @@ export async function createSettlement(input: SettlementData): Promise<Settlemen
     created_by: sessionUserId,
   };
 
+  // @supabase/ssr型定義の問題により型アサーション使用
+  // TODO: Supabase CLIで型定義を自動生成し、as anyを削除する (チケット: PB-66)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('settlements')
     .insert([payload])

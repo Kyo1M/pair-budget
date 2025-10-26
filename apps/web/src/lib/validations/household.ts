@@ -31,8 +31,7 @@ export const joinHouseholdSchema = z.object({
     .string()
     .min(1, '参加コードを入力してください')
     .length(6, '参加コードは6文字です')
-    .regex(/^[A-Z0-9]+$/, '参加コードは英数字のみです')
-    .transform((val) => val.toUpperCase()),
+    .regex(/^[A-Z0-9]+$/, '参加コードは英数字のみです'),
 });
 
 /**

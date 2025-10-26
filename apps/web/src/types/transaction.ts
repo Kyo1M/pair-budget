@@ -19,6 +19,7 @@ export const EXPENSE_CATEGORY_KEYS = [
   'medical',
   'home',
   'kids',
+  'transportation',
   'other',
 ] as const;
 
@@ -27,6 +28,7 @@ export const EXPENSE_CATEGORY_KEYS = [
  */
 export const INCOME_CATEGORY_KEYS = [
   'salary',
+  'sideline',
   'windfall',
   'subsidy',
 ] as const;

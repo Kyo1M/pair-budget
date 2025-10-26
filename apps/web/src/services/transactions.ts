@@ -228,6 +228,9 @@ export async function createTransaction(input: TransactionData): Promise<Transac
     created_by: session.user.id,
   };
 
+  // @supabase/ssr型定義の問題により型アサーション使用
+  // TODO: Supabase CLIで型定義を自動生成し、as anyを削除する (チケット: PB-66)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('transactions')
     .insert([payload])
@@ -267,4 +270,70 @@ export async function deleteTransaction(id: string): Promise<void> {
     console.error('取引削除エラー:', error);
     throw new Error('取引の削除に失敗しました');
   }
+}
+
+/**
+ * 取引を更新
+ * 
+ * @param id - 取引ID
+ * @param input - 更新データ（部分的な更新が可能）
+ * @returns 更新された取引
+ */
+export async function updateTransaction(
+  id: string,
+  input: Partial<TransactionData>
+): Promise<Transaction> {
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user?.id) {
+    throw new Error('認証されていません。ログインしてください。');
+  }
+
+  const payload: Partial<Database['public']['Tables']['transactions']['Update']> = {};
+
+  if (input.amount !== undefined) {
+    payload.amount = input.amount;
+  }
+  if (input.occurredOn !== undefined) {
+    payload.occurred_on = input.occurredOn;
+  }
+  if (input.category !== undefined) {
+    payload.category = input.category;
+  }
+  if (input.note !== undefined) {
+    payload.note = input.note?.trim() ? input.note.trim() : null;
+  }
+  if (input.payerUserId !== undefined) {
+    payload.payer_user_id = input.payerUserId ?? null;
+  }
+  if (input.type !== undefined) {
+    payload.type = input.type;
+    // タイプがadvance以外の場合は立替先をクリア
+    if (input.type !== 'advance' && input.advanceToUserId !== undefined) {
+      payload.advance_to_user_id = null;
+    }
+  }
+  if (input.advanceToUserId !== undefined && input.type === 'advance') {
+    payload.advance_to_user_id = input.advanceToUserId ?? null;
+  }
+
+  // @supabase/ssr型定義の問題により型アサーション使用
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('transactions')
+    .update(payload)
+    .eq('id', id)
+    .select(TRANSACTION_SELECT)
+    .single();
+
+  if (error) {
+    console.error('取引更新エラー:', error);
+    throw new Error('取引の更新に失敗しました');
+  }
+
+  return mapTransaction(data as TransactionRow);
 }

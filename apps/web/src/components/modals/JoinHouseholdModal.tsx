@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import {
   Dialog,
   DialogContent,
@@ -51,10 +52,13 @@ export function JoinHouseholdModal({
   const joinHousehold = useHouseholdStore((state) => state.joinHousehold);
   const [isLoading, setIsLoading] = useState(false);
 
+  // モーダルが開いている間、bodyスクロールを無効化
+  useBodyScrollLock(open);
+
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isValid },
     reset,
     watch,
   } = useForm<JoinHouseholdFormData>({
@@ -62,6 +66,7 @@ export function JoinHouseholdModal({
     defaultValues: {
       code: '',
     },
+    mode: 'onChange', // リアルタイムバリデーションを有効化
   });
 
   const codeValue = watch('code');
@@ -124,12 +129,13 @@ export function JoinHouseholdModal({
               placeholder="ABC123"
               maxLength={6}
               className="font-mono text-center text-2xl font-bold uppercase tracking-widest"
-              {...register('code')}
+              {...register('code', {
+                onChange: (e) => {
+                  // 自動的に大文字に変換
+                  e.target.value = e.target.value.toUpperCase();
+                }
+              })}
               disabled={isLoading}
-              onChange={(e) => {
-                // 自動的に大文字に変換
-                e.target.value = e.target.value.toUpperCase();
-              }}
             />
             {errors.code && (
               <p className="text-sm text-red-500">{errors.code.message}</p>
@@ -163,7 +169,7 @@ export function JoinHouseholdModal({
             </Button>
             <Button 
               type="submit" 
-              disabled={isLoading || !codeValue || codeValue.length !== 6} 
+              disabled={isLoading || !isValid || !codeValue || codeValue.length !== 6} 
               className="flex-1"
             >
               {isLoading ? '参加中...' : '参加'}

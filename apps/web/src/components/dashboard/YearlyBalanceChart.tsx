@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { MonthlyDifference } from '@/store/useYearlyDashboardStore';
+import type { TooltipContentProps } from 'recharts';
 
 const currencyFormatter = new Intl.NumberFormat('ja-JP', {
   style: 'currency',
@@ -39,14 +40,27 @@ interface TooltipPayload {
   cumulative: number;
 }
 
-function ChartTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
+function isTooltipPayload(data: unknown): data is TooltipPayload {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  const candidate = data as Record<string, unknown>;
+  return (
+    typeof candidate.label === 'string' &&
+    typeof candidate.value === 'number' &&
+    typeof candidate.cumulative === 'number'
+  );
+}
+
+function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) {
   if (!active || !payload || payload.length === 0) {
     return null;
   }
 
-  const item = payload[0]?.payload as TooltipPayload | undefined;
+  const item = payload[0]?.payload;
 
-  if (!item) {
+  if (!isTooltipPayload(item)) {
     return null;
   }
 
@@ -169,7 +183,10 @@ export function YearlyBalanceChart({ data, isLoading, defaultMetric = 'balance' 
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(59,130,246,0.1)' }} />
+            <Tooltip<number, string>
+              content={(props) => <ChartTooltip {...props} />}
+              cursor={{ fill: 'rgba(59,130,246,0.1)' }}
+            />
             <Bar dataKey="value" name={getBarLabel(metric)} radius={[4, 4, 0, 0]}>
               {chartData.map((item) => (
                 <Cell key={`cell-${item.month}`} fill={getBarColor(metric, item.value)} />
