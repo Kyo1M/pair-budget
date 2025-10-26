@@ -20,6 +20,7 @@ export const EXPENSE_CATEGORY_KEYS = [
   'home',
   'kids',
   'transportation',
+  'fixed',
   'other',
 ] as const;
 
@@ -147,4 +148,52 @@ export interface MonthlySummary {
   expenseTotal: number;
   /** 差額 (収入 - 支出) */
   balance: number;
+}
+
+/**
+ * 定期支出情報
+ */
+export interface RecurringExpense {
+  /** 定期支出ID */
+  id: string;
+  /** 世帯ID */
+  householdId: string;
+  /** 金額 */
+  amount: number;
+  /** 毎月の支払日 (1-31) */
+  dayOfMonth: number;
+  /** カテゴリキー */
+  category: ExpenseCategoryKey;
+  /** メモ */
+  note: string | null;
+  /** 支払者ユーザーID */
+  payerUserId: string;
+  /** 有効/無効 */
+  isActive: boolean;
+  /** 作成者ユーザーID */
+  createdBy: string;
+  /** 作成日時 */
+  createdAt: string;
+  /** 更新日時 */
+  updatedAt: string;
+}
+
+/**
+ * 定期支出作成時の入力データ
+ */
+export interface RecurringExpenseData {
+  /** 世帯ID */
+  householdId: string;
+  /** 金額 */
+  amount: number;
+  /** 毎月の支払日 (1-31) */
+  dayOfMonth: number;
+  /** カテゴリキー */
+  category: ExpenseCategoryKey;
+  /** メモ */
+  note?: string | null;
+  /** 支払者ユーザーID */
+  payerUserId: string;
+  /** 有効/無効 */
+  isActive?: boolean;
 }

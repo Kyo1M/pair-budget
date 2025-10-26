@@ -15,6 +15,7 @@ import {
   CircleDollarSign,
   HandCoins,
   Handshake,
+  Receipt,
   ShoppingCart,
 } from 'lucide-react';
 import { HouseholdSetupCard } from '@/components/household/HouseholdSetupCard';
@@ -29,6 +30,7 @@ import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { MonthlyCategoryBreakdown } from '@/components/dashboard/MonthlyCategoryBreakdown';
 import { YearlySummaryCards } from '@/components/dashboard/YearlySummaryCards';
 import { YearlyBalanceChart } from '@/components/dashboard/YearlyBalanceChart';
+import { RecurringExpenseList } from '@/components/dashboard/RecurringExpenseList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Fab, type FabAction } from '@/components/ui/Fab';
 import { Button } from '@/components/ui/button';
@@ -39,6 +41,7 @@ import { useTransactionStore } from '@/store/useTransactionStore';
 import { useDashboardStore } from '@/store/useDashboardStore';
 import { useSettlementStore } from '@/store/useSettlementStore';
 import { useYearlyDashboardStore } from '@/store/useYearlyDashboardStore';
+import { useRecurringExpenseStore } from '@/store/useRecurringExpenseStore';
 import type { Transaction, TransactionType } from '@/types/transaction';
 
 /**
@@ -94,6 +97,13 @@ export default function Home() {
   const settlementError = useSettlementStore((state) => state.error);
   const clearSettlementError = useSettlementStore((state) => state.clearError);
 
+  const recurringExpenses = useRecurringExpenseStore((state) => state.recurringExpenses);
+  const loadRecurringExpenses = useRecurringExpenseStore((state) => state.loadRecurringExpenses);
+  const recurringExpensesLoading = useRecurringExpenseStore((state) => state.isLoading);
+  const recurringExpenseError = useRecurringExpenseStore((state) => state.error);
+  const clearRecurringExpenseError = useRecurringExpenseStore((state) => state.clearError);
+  const generateMissingTransactions = useRecurringExpenseStore((state) => state.generateMissingTransactions);
+
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionModalType, setTransactionModalType] = useState<TransactionType>('expense');
@@ -102,7 +112,7 @@ export default function Home() {
     partnerId: string;
     direction: 'pay' | 'receive';
   } | null>(null);
-  const [activeView, setActiveView] = useState<'monthly' | 'yearly'>('monthly');
+  const [activeView, setActiveView] = useState<'monthly' | 'yearly' | 'recurring'>('monthly');
   const [isAllTransactionsModalOpen, setIsAllTransactionsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>();
 
@@ -127,6 +137,17 @@ export default function Home() {
       try {
         await loadTransactions(household.id, selectedMonth);
         await loadMonthlySummary(household.id, selectedMonth);
+        
+        // 月次ビュー表示時に定期支出からトランザクションを自動生成
+        if (activeView === 'monthly') {
+          const generatedCount = await generateMissingTransactions(household.id, selectedMonth);
+          if (generatedCount > 0) {
+            toast.success(`${generatedCount}件の定期支出を自動生成しました`);
+            // 生成後にデータを再読み込み
+            await loadTransactions(household.id, selectedMonth);
+            await loadMonthlySummary(household.id, selectedMonth);
+          }
+        }
       } catch (error) {
         console.error('月次データ読み込みエラー:', error);
         toast.error('月次データの読み込みに失敗しました');
@@ -134,7 +155,7 @@ export default function Home() {
     };
 
     void fetch();
-  }, [household, selectedMonth, loadTransactions, loadMonthlySummary]);
+  }, [household, selectedMonth, activeView, loadTransactions, loadMonthlySummary, generateMissingTransactions]);
 
   /**
    * 世帯確定後に最近の取引と残高を初期取得
@@ -150,6 +171,7 @@ export default function Home() {
           loadRecentTransactions(household.id),
           loadBalances(household.id),
           loadSettlements(household.id),
+          loadRecurringExpenses(household.id),
         ]);
       } catch (error) {
         console.error('初期データ読み込みエラー:', error);
@@ -157,7 +179,7 @@ export default function Home() {
     };
 
     void fetch();
-  }, [household, loadRecentTransactions, loadBalances, loadSettlements]);
+  }, [household, loadRecentTransactions, loadBalances, loadSettlements, loadRecurringExpenses]);
 
   /**
    * エラー通知をトースト表示
@@ -189,6 +211,13 @@ export default function Home() {
       clearSettlementError();
     }
   }, [settlementError, clearSettlementError]);
+
+  useEffect(() => {
+    if (recurringExpenseError) {
+      toast.error(recurringExpenseError);
+      clearRecurringExpenseError();
+    }
+  }, [recurringExpenseError, clearRecurringExpenseError]);
 
   /**
    * ログアウト処理
@@ -340,7 +369,7 @@ export default function Home() {
   }, [household, activeView, selectedYear, loadYearlySummary]);
 
   const handleViewChange = (value: string) => {
-    const mode = value === 'yearly' ? 'yearly' : 'monthly';
+    const mode = value === 'yearly' ? 'yearly' : value === 'recurring' ? 'recurring' : 'monthly';
     setActiveView(mode);
   };
 
@@ -435,9 +464,10 @@ export default function Home() {
 
       <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
         <Tabs value={activeView} onValueChange={handleViewChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:w-auto">
+          <TabsList className="grid w-full grid-cols-3 md:w-auto">
             <TabsTrigger value="monthly">月次ビュー</TabsTrigger>
             <TabsTrigger value="yearly">年次ビュー</TabsTrigger>
+            <TabsTrigger value="recurring">定期支出</TabsTrigger>
           </TabsList>
 
           <TabsContent value="monthly" className="space-y-6">
@@ -468,6 +498,15 @@ export default function Home() {
           <TabsContent value="yearly" className="space-y-6">
             <YearlySummaryCards summary={yearlySummary} isLoading={yearlyLoading} />
             <YearlyBalanceChart data={yearlyChartData} isLoading={yearlyLoading} />
+          </TabsContent>
+
+          <TabsContent value="recurring" className="space-y-6">
+            <RecurringExpenseList
+              householdId={household.id}
+              members={members}
+              recurringExpenses={recurringExpenses}
+              isLoading={recurringExpensesLoading}
+            />
           </TabsContent>
         </Tabs>
       </main>
