@@ -197,10 +197,11 @@ export function RecurringExpenseModal({
                   {...field}
                   id="amount"
                   type="number"
-                  placeholder="0"
+                  placeholder="金額を入力"
                   min="0"
                   step="1"
-                  onChange={(e) => field.onChange(Number(e.target.value))}
+                  value={field.value || ''}
+                  onChange={(e) => field.onChange(Number(e.target.value) || 0)}
                 />
               )}
             />
