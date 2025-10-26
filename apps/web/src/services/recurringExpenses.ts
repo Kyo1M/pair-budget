@@ -88,7 +88,7 @@ export async function updateRecurringExpense(
   id: string,
   data: Partial<RecurringExpenseData>
 ): Promise<RecurringExpense> {
-  const updateData: Record<string, any> = {};
+  const updateData: Record<string, unknown> = {};
   
   if (data.amount !== undefined) updateData.amount = data.amount;
   if (data.dayOfMonth !== undefined) updateData.day_of_month = data.dayOfMonth;
@@ -165,18 +165,18 @@ export async function generateMissingTransactions(
  * @param dbData - データベースの定期支出データ
  * @returns アプリケーションの定期支出データ
  */
-function transformRecurringExpense(dbData: any): RecurringExpense {
+function transformRecurringExpense(dbData: Record<string, unknown>): RecurringExpense {
   return {
-    id: dbData.id,
-    householdId: dbData.household_id,
-    amount: dbData.amount,
-    dayOfMonth: dbData.day_of_month,
-    category: dbData.category,
-    note: dbData.note,
-    payerUserId: dbData.payer_user_id,
-    isActive: dbData.is_active,
-    createdBy: dbData.created_by,
-    createdAt: dbData.created_at,
-    updatedAt: dbData.updated_at,
+    id: dbData.id as string,
+    householdId: dbData.household_id as string,
+    amount: dbData.amount as number,
+    dayOfMonth: dbData.day_of_month as number,
+    category: dbData.category as ExpenseCategoryKey,
+    note: dbData.note as string | null,
+    payerUserId: dbData.payer_user_id as string,
+    isActive: dbData.is_active as boolean,
+    createdBy: dbData.created_by as string,
+    createdAt: dbData.created_at as string,
+    updatedAt: dbData.updated_at as string,
   };
 }

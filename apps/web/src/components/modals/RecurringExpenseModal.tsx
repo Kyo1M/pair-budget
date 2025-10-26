@@ -27,7 +27,7 @@ import {
   toRecurringExpenseFormData,
   toRecurringExpenseData,
 } from '@/lib/validations/recurringExpense';
-import { getCategoriesByType, TRANSACTION_CATEGORY_MAP } from '@/constants/categories';
+import { getCategoriesByType } from '@/constants/categories';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRecurringExpenseStore } from '@/store/useRecurringExpenseStore';
 

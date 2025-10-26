@@ -15,7 +15,6 @@ import {
   CircleDollarSign,
   HandCoins,
   Handshake,
-  Receipt,
   ShoppingCart,
 } from 'lucide-react';
 import { HouseholdSetupCard } from '@/components/household/HouseholdSetupCard';
