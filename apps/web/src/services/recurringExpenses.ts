@@ -5,7 +5,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import type { RecurringExpense, RecurringExpenseData } from '@/types/transaction';
+import type { RecurringExpense, RecurringExpenseData, ExpenseCategoryKey } from '@/types/transaction';
 
 /**
  * Supabaseクライアントインスタンス
