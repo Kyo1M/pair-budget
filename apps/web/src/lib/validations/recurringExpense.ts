@@ -11,16 +11,16 @@ import type { RecurringExpenseData } from '@/types/transaction';
 export const recurringExpenseSchema = z.object({
   householdId: z.string().uuid('世帯IDが正しくありません'),
   amount: z
-    .number({ required_error: '金額を入力してください' })
+    .number('金額を入力してください')
     .positive('金額は正の数である必要があります')
     .max(999999999.99, '金額が大きすぎます'),
   dayOfMonth: z
-    .number({ required_error: '支払日を選択してください' })
+    .number('支払日を選択してください')
     .int('支払日は整数である必要があります')
     .min(1, '支払日は1日以上である必要があります')
     .max(31, '支払日は31日以下である必要があります'),
   category: z.enum(['groceries', 'dining', 'daily', 'medical', 'home', 'kids', 'transportation', 'fixed', 'other'], {
-    required_error: 'カテゴリを選択してください',
+    message: 'カテゴリを選択してください',
   }),
   note: z.string().max(500, 'メモは500文字以内で入力してください').optional(),
   payerUserId: z.string().uuid('支払者が正しくありません'),
