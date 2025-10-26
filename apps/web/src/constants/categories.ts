@@ -9,6 +9,7 @@ import {
   Car,
   HandCoins,
   Home,
+  Receipt,
   ShoppingBag,
   ShoppingBasket,
   Sparkles,
@@ -76,6 +77,13 @@ export const TRANSACTION_CATEGORIES: TransactionCategory[] = [
     types: ['expense', 'advance'],
   },
   {
+    key: 'fixed',
+    label: '固定費',
+    icon: Receipt,
+    colorClass: 'text-violet-500',
+    types: ['expense', 'advance'],
+  },
+  {
     key: 'other',
     label: 'その他',
     icon: MoreHorizontal,
@@ -134,7 +142,8 @@ export const EXPENSE_CATEGORY_CHART_COLORS: Record<ExpenseCategoryKey, string> =
   home: 'var(--chart-5)',
   kids: 'var(--chart-6)',
   transportation: 'var(--chart-7)',
-  other: 'var(--chart-8)',
+  fixed: 'var(--chart-8)',
+  other: 'var(--chart-9)',
 };
 
 /**

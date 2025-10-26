@@ -51,8 +51,8 @@ function mapTransaction(row: TransactionRow): Transaction {
     payerUserId: row.payer_user_id,
     advanceToUserId: row.advance_to_user_id,
     createdBy: row.created_by,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
   };
 }
 
