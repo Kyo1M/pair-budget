@@ -316,11 +316,13 @@ export function RecurringExpenseModal({
                 render={({ field }) => (
                   <div className="flex items-center space-x-2">
                     <input
-                      {...field}
                       id="isActive"
                       type="checkbox"
                       checked={field.value}
                       onChange={(e) => field.onChange(e.target.checked)}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <Label htmlFor="isActive" className="text-sm">
