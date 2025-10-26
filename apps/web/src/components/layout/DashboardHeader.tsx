@@ -18,7 +18,7 @@ interface DashboardHeaderProps {
   /** ユーザーのメールアドレス */
   userEmail?: string;
   /** 表示モード */
-  viewMode: 'monthly' | 'yearly';
+  viewMode: 'monthly' | 'yearly' | 'recurring';
   /** 選択中の月 (YYYY-MM) */
   selectedMonth?: string;
   /** 選択中の年 */
@@ -102,7 +102,7 @@ export function DashboardHeader({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-          ) : (
+          ) : viewMode === 'yearly' ? (
             <div className="flex items-center justify-center gap-2 rounded-full border px-3 py-1.5">
               <Button
                 variant="ghost"
@@ -126,7 +126,7 @@ export function DashboardHeader({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-          )}
+          ) : null}
 
           <div className="flex items-center justify-end gap-2">
             {isOwner && onShare && (
