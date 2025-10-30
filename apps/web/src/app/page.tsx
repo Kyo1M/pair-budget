@@ -476,6 +476,8 @@ export default function Home() {
               <MonthlyCategoryBreakdown
                 transactions={transactions}
                 isLoading={transactionsLoading}
+                onEdit={handleEditTransaction}
+                onDelete={handleDeleteTransaction}
               />
               <BalanceCard
                 balances={balances}
