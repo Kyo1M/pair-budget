@@ -6,12 +6,14 @@
 
 'use client';
 
+import { useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import type { TooltipContentProps } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EXPENSE_CATEGORY_CHART_COLORS } from '@/constants/categories';
 import { calculateExpenseCategoryBreakdown } from '@/lib/dashboard';
-import type { Transaction } from '@/types/transaction';
+import { CategoryTransactionsModal } from '@/components/modals/CategoryTransactionsModal';
+import type { Transaction, ExpenseCategoryKey } from '@/types/transaction';
 
 /**
  * 金額フォーマッター
@@ -110,10 +112,17 @@ function BreakdownSkeleton() {
 export function MonthlyCategoryBreakdown({
   transactions,
   isLoading,
+  onEdit,
+  onDelete,
 }: {
   transactions: Transaction[];
   isLoading: boolean;
+  onEdit?: (transaction: Transaction) => void;
+  onDelete?: (transaction: Transaction) => void;
 }) {
+  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategoryKey | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   if (isLoading) {
     return <BreakdownSkeleton />;
   }
@@ -138,64 +147,99 @@ export function MonthlyCategoryBreakdown({
     );
   }
 
-  const chartData: Array<BreakdownTooltipPayload & { name: string; color: string }> = items.map((item) => ({
+  const chartData: Array<BreakdownTooltipPayload & { name: string; color: string; key: ExpenseCategoryKey }> = items.map((item) => ({
     name: item.category.label,
     label: item.category.label,
     value: item.amount,
     amount: item.amount,
     ratio: item.ratio,
     color: EXPENSE_CATEGORY_CHART_COLORS[item.key],
+    key: item.key,
   }));
 
-  return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle>カテゴリ内訳</CardTitle>
-        <p className="text-xs text-gray-500">
-          合計 {currencyFormatter.format(total)} ・世帯向け立替は含まれ、個別立替は除外しています
-        </p>
-      </CardHeader>
-      <CardContent className="grid gap-6 sm:grid-cols-[minmax(0,1fr)] lg:grid-cols-[60%_1fr]">
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip<number, string> content={(props) => <ChartTooltip {...props} />} />
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius="60%"
-                outerRadius="90%"
-                paddingAngle={2}
-              >
-                {chartData.map((item) => (
-                  <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={1} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+  const handleCategoryClick = (categoryKey: ExpenseCategoryKey) => {
+    setSelectedCategory(categoryKey);
+    setIsModalOpen(true);
+  };
 
-        <ul className="space-y-3">
-          {chartData.map((item) => (
-            <li key={item.name} className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span
-                  className="inline-block h-3 w-3 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">{item.label}</p>
-                  <p className="text-xs text-gray-400">{formatPercent(item.ratio)}</p>
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedCategory(null);
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="space-y-1">
+          <CardTitle>カテゴリ内訳</CardTitle>
+          <p className="text-xs text-gray-500">
+            合計 {currencyFormatter.format(total)} ・世帯向け立替は含まれ、個別立替は除外しています
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-6 sm:grid-cols-[minmax(0,1fr)] lg:grid-cols-[60%_1fr]">
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Tooltip<number, string> content={(props) => <ChartTooltip {...props} />} />
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius="60%"
+                  outerRadius="90%"
+                  paddingAngle={2}
+                  onClick={(data: unknown) => {
+                    if (data && typeof data === 'object' && 'key' in data) {
+                      handleCategoryClick(data.key as ExpenseCategoryKey);
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {chartData.map((item) => (
+                    <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={1} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <ul className="space-y-3">
+            {chartData.map((item) => (
+              <li
+                key={item.name}
+                className="flex items-center justify-between gap-4 cursor-pointer hover:bg-gray-50 rounded-lg p-2 -m-2 transition"
+                onClick={() => handleCategoryClick(item.key)}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{item.label}</p>
+                    <p className="text-xs text-gray-400">{formatPercent(item.ratio)}</p>
+                  </div>
                 </div>
-              </div>
-              <p className="text-sm font-semibold text-gray-700">
-                {currencyFormatter.format(item.amount)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+                <p className="text-sm font-semibold text-gray-700">
+                  {currencyFormatter.format(item.amount)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      {selectedCategory && (
+        <CategoryTransactionsModal
+          open={isModalOpen}
+          onOpenChange={handleModalClose}
+          transactions={transactions}
+          category={selectedCategory}
+          isLoading={isLoading}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      )}
+    </>
   );
 }
