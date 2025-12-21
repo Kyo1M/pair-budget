@@ -107,7 +107,7 @@ export function SettlementModal({
     defaultValues: {
       direction: 'receive',
       partnerUserId: HOUSEHOLD_SETTLEMENT_KEY,
-      amount: 0,
+      amount: '' as unknown as number, // 空白表示のため
       settledOn: getToday(),
       note: '',
     },
@@ -129,7 +129,7 @@ export function SettlementModal({
       reset({
         direction: defaultDirection,
         partnerUserId: defaultPartnerId,
-        amount: 0,
+        amount: '' as unknown as number, // 空白表示のため
         settledOn: getToday(),
         note: '',
       });

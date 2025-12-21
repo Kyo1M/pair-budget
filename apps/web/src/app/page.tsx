@@ -21,7 +21,6 @@ import { HouseholdSetupCard } from '@/components/household/HouseholdSetupCard';
 import { ShareJoinCodeModal } from '@/components/modals/ShareJoinCodeModal';
 import { TransactionModal } from '@/components/modals/TransactionModal';
 import { SettlementModal } from '@/components/modals/SettlementModal';
-import { AllTransactionsModal } from '@/components/modals/AllTransactionsModal';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
@@ -112,7 +111,6 @@ export default function Home() {
     direction: 'pay' | 'receive';
   } | null>(null);
   const [activeView, setActiveView] = useState<'monthly' | 'yearly' | 'recurring'>('monthly');
-  const [isAllTransactionsModalOpen, setIsAllTransactionsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>();
 
   /**
@@ -274,7 +272,6 @@ export default function Home() {
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setIsTransactionModalOpen(true);
-    setIsAllTransactionsModalOpen(false);
   };
 
   /**
@@ -476,6 +473,8 @@ export default function Home() {
               <MonthlyCategoryBreakdown
                 transactions={transactions}
                 isLoading={transactionsLoading}
+                onEdit={handleEditTransaction}
+                onDelete={handleDeleteTransaction}
               />
               <BalanceCard
                 balances={balances}
@@ -539,15 +538,6 @@ export default function Home() {
         members={members}
         initialPartnerId={settlementTarget?.partnerId}
         initialDirection={settlementTarget?.direction}
-      />
-
-      <AllTransactionsModal
-        open={isAllTransactionsModalOpen}
-        onOpenChange={setIsAllTransactionsModalOpen}
-        transactions={transactions}
-        isLoading={transactionsLoading}
-        onEdit={handleEditTransaction}
-        onDelete={handleDeleteTransaction}
       />
     </div>
   );
