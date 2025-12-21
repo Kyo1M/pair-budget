@@ -59,10 +59,25 @@ interface AllTransactionsModalProps {
   transactions: Transaction[];
   /** ローディング状態 */
   isLoading: boolean;
+  /** 表示対象の月 (YYYY-MM形式) */
+  selectedMonth?: string;
   /** 編集アクション */
   onEdit?: (transaction: Transaction) => void;
   /** 削除アクション */
   onDelete?: (transaction: Transaction) => void;
+}
+
+/**
+ * 月表示用フォーマッター (YYYY年M月)
+ */
+function formatMonthTitle(month: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) {
+    return '取引履歴';
+  }
+  const year = Number(match[1]);
+  const monthNum = Number(match[2]);
+  return `${year}年${monthNum}月の取引`;
 }
 
 /**
@@ -103,6 +118,7 @@ export function AllTransactionsModal({
   onOpenChange,
   transactions,
   isLoading,
+  selectedMonth,
   onEdit,
   onDelete,
 }: AllTransactionsModalProps) {
@@ -132,7 +148,9 @@ export function AllTransactionsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle>取引履歴</DialogTitle>
+          <DialogTitle>
+            {selectedMonth ? formatMonthTitle(selectedMonth) : '取引履歴'}
+          </DialogTitle>
           <DialogDescription>
             すべての取引履歴を表示します（{transactions.length}件）
           </DialogDescription>

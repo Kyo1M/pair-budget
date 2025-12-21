@@ -7,7 +7,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowRight, CalendarDays, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, CalendarDays, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -39,6 +39,9 @@ const currencyFormatter = new Intl.NumberFormat('ja-JP', {
  * フィルタータイプ
  */
 type FilterType = 'all' | Transaction['type'];
+
+/** デフォルトの表示件数 */
+const DEFAULT_DISPLAY_LIMIT = 10;
 
 /**
  * 最近の取引リストのプロパティ
@@ -94,23 +97,19 @@ export function RecentTransactions({
   onDelete,
 }: RecentTransactionsProps) {
   const [filterType, setFilterType] = useState<FilterType>('all');
-  const [displayLimit, setDisplayLimit] = useState<number>(5); // デフォルト5件、すべて表示で20件
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // フィルター適用後の取引
   const filteredTransactions =
     filterType === 'all' ? transactions : transactions.filter((t) => t.type === filterType);
 
-  // 表示件数を制限
-  const displayedTransactions = filteredTransactions.slice(0, displayLimit);
+  // 展開状態に応じて表示件数を決定
+  const displayedTransactions = isExpanded
+    ? filteredTransactions
+    : filteredTransactions.slice(0, DEFAULT_DISPLAY_LIMIT);
 
-  // すべて表示ボタンのクリックハンドラ
-  const handleViewAll = () => {
-    if (displayLimit === 5) {
-      setDisplayLimit(20);
-    } else {
-      setDisplayLimit(5);
-    }
-  };
+  // 残りの取引件数
+  const remainingCount = filteredTransactions.length - DEFAULT_DISPLAY_LIMIT;
 
   // タイプ別フィルターのラベル
   const getFilterLabel = (type: FilterType): string => {
@@ -128,10 +127,15 @@ export function RecentTransactions({
     }
   };
 
-  // フィルター変更時に表示件数をリセット
+  // フィルター変更ハンドラ（展開状態をリセット）
   const handleFilterChange = (type: FilterType) => {
     setFilterType(type);
-    setDisplayLimit(5);
+    setIsExpanded(false);
+  };
+
+  // 展開/折りたたみトグル
+  const handleToggleExpand = () => {
+    setIsExpanded((prev) => !prev);
   };
 
   return (
@@ -140,7 +144,11 @@ export function RecentTransactions({
         <div>
           <CardTitle>最近の取引</CardTitle>
           <p className="text-sm text-gray-500">
-            最新の{displayLimit}件を表示しています
+            {isExpanded
+              ? `全${filteredTransactions.length}件を表示中`
+              : remainingCount > 0
+                ? `最新の${DEFAULT_DISPLAY_LIMIT}件を表示（他${remainingCount}件）`
+                : `${filteredTransactions.length}件の取引`}
           </p>
         </div>
         {/* タイプ別フィルター */}
@@ -268,15 +276,24 @@ export function RecentTransactions({
           </ul>
         )}
       </CardContent>
-      <CardFooter className="flex justify-end">
-        {filteredTransactions.length > 5 && (
+      <CardFooter className="flex justify-center">
+        {remainingCount > 0 && (
           <button
             type="button"
-            className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
-            onClick={handleViewAll}
+            className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition"
+            onClick={handleToggleExpand}
           >
-            {displayLimit === 5 ? 'すべて表示' : '折りたたむ'}
-            <ArrowRight className={`h-4 w-4 transition-transform ${displayLimit === 20 ? 'rotate-90' : ''}`} />
+            {isExpanded ? (
+              <>
+                折りたたむ
+                <ChevronUp className="h-4 w-4" />
+              </>
+            ) : (
+              <>
+                他{remainingCount}件を表示
+                <ChevronDown className="h-4 w-4" />
+              </>
+            )}
           </button>
         )}
       </CardFooter>
