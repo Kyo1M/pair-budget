@@ -108,7 +108,7 @@ export function TransactionModal({
     resolver: zodResolver(transactionSchema) as Resolver<TransactionFormData>,
     defaultValues: {
       type: defaultType,
-      amount: 0,
+      amount: '' as unknown as number, // 空白表示のため
       occurredOn: getToday(),
       category: getDefaultCategoryForType(defaultType),
       note: '',
@@ -151,7 +151,7 @@ export function TransactionModal({
         // 新規作成モード
         reset({
           type: defaultType,
-          amount: 0,
+          amount: '' as unknown as number, // 空白表示のため
           occurredOn: getToday(),
           category: getDefaultCategoryForType(defaultType),
           note: '',
