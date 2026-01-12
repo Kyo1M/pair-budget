@@ -30,7 +30,7 @@ import { YearlySummaryCards } from '@/components/dashboard/YearlySummaryCards';
 import { YearlyBalanceChart } from '@/components/dashboard/YearlyBalanceChart';
 import { RecurringExpenseList } from '@/components/dashboard/RecurringExpenseList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Fab, type FabAction } from '@/components/ui/Fab';
+import { BottomActionBar, type BottomAction } from '@/components/layout/BottomActionBar';
 import { Button } from '@/components/ui/button';
 import { HOUSEHOLD_SETTLEMENT_KEY } from '@/lib/validations/settlement';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -372,26 +372,26 @@ export default function Home() {
   const yearlyChartData = useMemo(() => yearlyDifferences, [yearlyDifferences]);
 
   /**
-   * FAB のアクション
+   * 下部アクションバーのアクション
    */
-  const fabActions: FabAction[] = [
+  const bottomActions: BottomAction[] = [
     {
-      label: '支出を記録',
+      label: '支出',
       icon: ShoppingCart,
       onClick: () => openTransactionModal('expense'),
     },
     {
-      label: '収入を記録',
+      label: '収入',
       icon: CircleDollarSign,
       onClick: () => openTransactionModal('income'),
     },
     {
-      label: '立替を記録',
+      label: '立替',
       icon: Handshake,
       onClick: () => openTransactionModal('advance'),
     },
     {
-      label: '精算を記録',
+      label: '精算',
       icon: HandCoins,
       onClick: () =>
         openSettlementModal({
@@ -399,7 +399,7 @@ export default function Home() {
           suggestedDirection: currentUserBalance < 0 ? 'pay' : 'receive',
         }),
     },
-  ] as const;
+  ];
 
   /**
    * ローディング表示
@@ -509,7 +509,7 @@ export default function Home() {
         </Tabs>
       </main>
 
-      <Fab actions={fabActions} />
+      <BottomActionBar actions={bottomActions} />
 
       <ShareJoinCodeModal
         open={isShareModalOpen}
