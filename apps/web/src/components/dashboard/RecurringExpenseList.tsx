@@ -163,6 +163,12 @@ export function RecurringExpenseList({
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
+                    <Badge
+                      variant={recurringExpense.expenseType === 'fixed' ? 'default' : 'outline'}
+                      className="text-xs"
+                    >
+                      {recurringExpense.expenseType === 'fixed' ? '固定費' : '変動費'}
+                    </Badge>
                     {!recurringExpense.isActive && (
                       <Badge variant="secondary" className="text-xs">
                         無効
@@ -199,10 +205,14 @@ export function RecurringExpenseList({
                     <span>{payerName}</span>
                   </div>
                 </div>
-                {!recurringExpense.isActive && (
+                {!recurringExpense.isActive ? (
                   <div className="mt-3 flex items-center space-x-2 text-sm text-amber-600">
                     <AlertCircle className="h-4 w-4" />
-                    <span>無効化されているため、自動生成が停止されています</span>
+                    <span>無効化されているため、自動生成・通知が停止されています</span>
+                  </div>
+                ) : recurringExpense.expenseType === 'variable' && (
+                  <div className="mt-3 text-sm text-gray-500">
+                    毎月{recurringExpense.dayOfMonth}日にリマインダーが表示されます
                   </div>
                 )}
               </CardContent>

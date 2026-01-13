@@ -151,6 +151,11 @@ export interface MonthlySummary {
 }
 
 /**
+ * 定期支出の種類
+ */
+export type RecurringExpenseType = 'fixed' | 'variable';
+
+/**
  * 定期支出情報
  */
 export interface RecurringExpense {
@@ -170,6 +175,8 @@ export interface RecurringExpense {
   payerUserId: string;
   /** 有効/無効 */
   isActive: boolean;
+  /** 種類（固定費/変動費） */
+  expenseType: RecurringExpenseType;
   /** 作成者ユーザーID */
   createdBy: string;
   /** 作成日時 */
@@ -196,4 +203,24 @@ export interface RecurringExpenseData {
   payerUserId: string;
   /** 有効/無効 */
   isActive?: boolean;
+  /** 種類（固定費/変動費） */
+  expenseType: RecurringExpenseType;
+}
+
+/**
+ * 変動費リマインダー情報
+ */
+export interface VariableExpenseReminder {
+  /** 定期支出ID */
+  id: string;
+  /** 目安金額 */
+  amount: number;
+  /** 毎月の支払日 (1-31) */
+  dayOfMonth: number;
+  /** カテゴリキー */
+  category: ExpenseCategoryKey;
+  /** メモ */
+  note: string | null;
+  /** 支払者ユーザーID */
+  payerUserId: string;
 }

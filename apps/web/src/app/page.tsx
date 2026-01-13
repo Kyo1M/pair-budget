@@ -8,7 +8,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -29,6 +29,7 @@ import { MonthlyCategoryBreakdown } from '@/components/dashboard/MonthlyCategory
 import { YearlySummaryCards } from '@/components/dashboard/YearlySummaryCards';
 import { YearlyBalanceChart } from '@/components/dashboard/YearlyBalanceChart';
 import { RecurringExpenseList } from '@/components/dashboard/RecurringExpenseList';
+import { VariableExpenseReminderBanner } from '@/components/dashboard/VariableExpenseReminderBanner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomActionBar, type BottomAction } from '@/components/layout/BottomActionBar';
 import { Button } from '@/components/ui/button';
@@ -40,7 +41,7 @@ import { useDashboardStore } from '@/store/useDashboardStore';
 import { useSettlementStore } from '@/store/useSettlementStore';
 import { useYearlyDashboardStore } from '@/store/useYearlyDashboardStore';
 import { useRecurringExpenseStore } from '@/store/useRecurringExpenseStore';
-import type { Transaction, TransactionType } from '@/types/transaction';
+import type { Transaction, TransactionType, VariableExpenseReminder } from '@/types/transaction';
 
 /**
  * 月をオフセットして YYYY-MM を生成
@@ -96,11 +97,14 @@ export default function Home() {
   const clearSettlementError = useSettlementStore((state) => state.clearError);
 
   const recurringExpenses = useRecurringExpenseStore((state) => state.recurringExpenses);
+  const variableReminders = useRecurringExpenseStore((state) => state.variableReminders);
   const loadRecurringExpenses = useRecurringExpenseStore((state) => state.loadRecurringExpenses);
   const recurringExpensesLoading = useRecurringExpenseStore((state) => state.isLoading);
   const recurringExpenseError = useRecurringExpenseStore((state) => state.error);
   const clearRecurringExpenseError = useRecurringExpenseStore((state) => state.clearError);
-  const generateMissingTransactions = useRecurringExpenseStore((state) => state.generateMissingTransactions);
+  const generateFixedTransactions = useRecurringExpenseStore((state) => state.generateFixedTransactions);
+  const loadVariableReminders = useRecurringExpenseStore((state) => state.loadVariableReminders);
+  const dismissReminder = useRecurringExpenseStore((state) => state.dismissReminder);
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -112,6 +116,11 @@ export default function Home() {
   } | null>(null);
   const [activeView, setActiveView] = useState<'monthly' | 'yearly' | 'recurring'>('monthly');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>();
+  const selectedMonthRef = useRef(selectedMonth);
+
+  useEffect(() => {
+    selectedMonthRef.current = selectedMonth;
+  }, [selectedMonth]);
 
   /**
    * 世帯情報を初期取得
@@ -134,17 +143,6 @@ export default function Home() {
       try {
         await loadTransactions(household.id, selectedMonth);
         await loadMonthlySummary(household.id, selectedMonth);
-        
-        // 月次ビュー表示時に定期支出からトランザクションを自動生成
-        if (activeView === 'monthly') {
-          const generatedCount = await generateMissingTransactions(household.id, selectedMonth);
-          if (generatedCount > 0) {
-            toast.success(`${generatedCount}件の定期支出を自動生成しました`);
-            // 生成後にデータを再読み込み
-            await loadTransactions(household.id, selectedMonth);
-            await loadMonthlySummary(household.id, selectedMonth);
-          }
-        }
       } catch (error) {
         console.error('月次データ読み込みエラー:', error);
         toast.error('月次データの読み込みに失敗しました');
@@ -152,7 +150,7 @@ export default function Home() {
     };
 
     void fetch();
-  }, [household, selectedMonth, activeView, loadTransactions, loadMonthlySummary, generateMissingTransactions]);
+  }, [household, selectedMonth, loadTransactions, loadMonthlySummary]);
 
   /**
    * 世帯確定後に最近の取引と残高を初期取得
@@ -164,6 +162,23 @@ export default function Home() {
 
     const fetch = async () => {
       try {
+        // 固定費の自動生成（日付ベース）
+        const generatedCount = await generateFixedTransactions(household.id);
+        if (generatedCount > 0) {
+          toast.success(`${generatedCount}件の固定費を自動登録しました`);
+          try {
+            await loadTransactions(household.id, selectedMonthRef.current);
+            await loadMonthlySummary(household.id, selectedMonthRef.current);
+          } catch (error) {
+            console.error('月次データ再読み込みエラー:', error);
+            toast.error('月次データの読み込みに失敗しました');
+          }
+        }
+
+        // 変動費リマインダーの読み込み
+        await loadVariableReminders(household.id);
+
+        // その他の初期データ読み込み
         await Promise.all([
           loadRecentTransactions(household.id),
           loadBalances(household.id),
@@ -176,7 +191,17 @@ export default function Home() {
     };
 
     void fetch();
-  }, [household, loadRecentTransactions, loadBalances, loadSettlements, loadRecurringExpenses]);
+  }, [
+    household,
+    loadRecentTransactions,
+    loadBalances,
+    loadSettlements,
+    loadRecurringExpenses,
+    generateFixedTransactions,
+    loadVariableReminders,
+    loadTransactions,
+    loadMonthlySummary,
+  ]);
 
   /**
    * エラー通知をトースト表示
@@ -264,6 +289,29 @@ export default function Home() {
     if (transaction.type === 'advance') {
       await loadBalances(household.id);
     }
+  };
+
+  /**
+   * リマインダーから支出登録
+   */
+  const handleRegisterFromReminder = (reminder: VariableExpenseReminder) => {
+    setTransactionModalType('expense');
+    // リマインダーの情報をセットして編集モードのように扱う（プリセット値として）
+    setEditingTransaction({
+      id: '',
+      householdId: household?.id || '',
+      type: 'expense',
+      amount: reminder.amount,
+      occurredOn: new Date().toISOString().split('T')[0],
+      category: reminder.category,
+      note: reminder.note,
+      payerUserId: reminder.payerUserId,
+      advanceToUserId: null,
+      createdBy: user?.id || '',
+      createdAt: '',
+      updatedAt: '',
+    });
+    setIsTransactionModalOpen(true);
   };
 
   /**
@@ -467,6 +515,14 @@ export default function Home() {
           </TabsList>
 
           <TabsContent value="monthly" className="space-y-6">
+            {/* 変動費リマインダーバナー */}
+            <VariableExpenseReminderBanner
+              reminders={variableReminders}
+              members={members}
+              onRegister={handleRegisterFromReminder}
+              onDismiss={dismissReminder}
+            />
+
             <SummaryCards summary={summary} isLoading={summaryLoading || transactionsLoading} />
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

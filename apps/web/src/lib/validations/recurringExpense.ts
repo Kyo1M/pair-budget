@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { RecurringExpenseData } from '@/types/transaction';
+import type { RecurringExpenseData, RecurringExpense } from '@/types/transaction';
 
 /**
  * 定期支出作成・更新用のバリデーションスキーマ
@@ -25,6 +25,9 @@ export const recurringExpenseSchema = z.object({
   note: z.string().max(500, 'メモは500文字以内で入力してください').optional(),
   payerUserId: z.string().uuid('支払者が正しくありません'),
   isActive: z.boolean().optional().default(true),
+  expenseType: z.enum(['fixed', 'variable'], {
+    message: '種類を選択してください',
+  }).default('fixed'),
 });
 
 /**
@@ -34,11 +37,11 @@ export type RecurringExpenseFormData = z.infer<typeof recurringExpenseSchema>;
 
 /**
  * 定期支出データをフォームデータに変換
- * 
+ *
  * @param data - 定期支出データ
  * @returns フォームデータ
  */
-export function toRecurringExpenseFormData(data: RecurringExpenseData): RecurringExpenseFormData {
+export function toRecurringExpenseFormData(data: RecurringExpense): RecurringExpenseFormData {
   return {
     householdId: data.householdId,
     amount: data.amount,
@@ -47,12 +50,13 @@ export function toRecurringExpenseFormData(data: RecurringExpenseData): Recurrin
     note: data.note ?? undefined,
     payerUserId: data.payerUserId,
     isActive: data.isActive ?? true,
+    expenseType: data.expenseType ?? 'fixed',
   };
 }
 
 /**
  * フォームデータを定期支出データに変換
- * 
+ *
  * @param formData - フォームデータ
  * @returns 定期支出データ
  */
@@ -65,5 +69,6 @@ export function toRecurringExpenseData(formData: RecurringExpenseFormData): Recu
     note: formData.note ?? null,
     payerUserId: formData.payerUserId,
     isActive: formData.isActive,
+    expenseType: formData.expenseType ?? 'fixed',
   };
 }
