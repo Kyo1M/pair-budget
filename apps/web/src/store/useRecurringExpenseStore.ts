@@ -5,13 +5,15 @@
  */
 
 import { create } from 'zustand';
-import type { RecurringExpense, RecurringExpenseData } from '@/types/transaction';
+import type { RecurringExpense, RecurringExpenseData, VariableExpenseReminder } from '@/types/transaction';
 import {
   listRecurringExpenses,
   createRecurringExpense,
   updateRecurringExpense,
   deleteRecurringExpense,
   generateMissingTransactions,
+  generateFixedTransactionsByDate,
+  getVariableExpenseReminders,
 } from '@/services/recurringExpenses';
 
 /**
@@ -20,6 +22,8 @@ import {
 interface RecurringExpenseState {
   /** 定期支出一覧 */
   recurringExpenses: RecurringExpense[];
+  /** 変動費リマインダー一覧 */
+  variableReminders: VariableExpenseReminder[];
   /** ローディング状態 */
   isLoading: boolean;
   /** 送信状態 */
@@ -42,6 +46,12 @@ interface RecurringExpenseActions {
   removeRecurringExpense: (id: string) => Promise<void>;
   /** 指定月の未作成トランザクションを生成 */
   generateMissingTransactions: (householdId: string, targetMonth: string) => Promise<number>;
+  /** 固定費トランザクションを日付ベースで生成 */
+  generateFixedTransactions: (householdId: string) => Promise<number>;
+  /** 変動費リマインダーを読み込み */
+  loadVariableReminders: (householdId: string) => Promise<void>;
+  /** リマインダーを一時的に非表示 */
+  dismissReminder: (id: string) => void;
   /** エラーをクリア */
   clearError: () => void;
   /** ストアをリセット */
@@ -58,6 +68,7 @@ type RecurringExpenseStore = RecurringExpenseState & RecurringExpenseActions;
  */
 const initialState: RecurringExpenseState = {
   recurringExpenses: [],
+  variableReminders: [],
   isLoading: false,
   isSubmitting: false,
   error: null,
@@ -164,6 +175,45 @@ export const useRecurringExpenseStore = create<RecurringExpenseStore>((set, get)
       set({ error: errorMessage, isLoading: false });
       throw error;
     }
+  },
+
+  /**
+   * 固定費トランザクションを日付ベースで生成
+   */
+  generateFixedTransactions: async (householdId: string) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const generatedCount = await generateFixedTransactionsByDate(householdId);
+      set({ isLoading: false });
+      return generatedCount;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '固定費の自動生成に失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  /**
+   * 変動費リマインダーを読み込み
+   */
+  loadVariableReminders: async (householdId: string) => {
+    try {
+      const reminders = await getVariableExpenseReminders(householdId);
+      set({ variableReminders: reminders });
+    } catch (error) {
+      console.error('変動費リマインダー読み込みエラー:', error);
+    }
+  },
+
+  /**
+   * リマインダーを一時的に非表示
+   */
+  dismissReminder: (id: string) => {
+    const { variableReminders } = get();
+    set({
+      variableReminders: variableReminders.filter((r) => r.id !== id),
+    });
   },
 
   /**

@@ -88,8 +88,8 @@ export function TransactionModal({
   // モーダルが開いている間、bodyスクロールを無効化
   useBodyScrollLock(open);
 
-  // 編集モードかどうか
-  const isEditMode = !!editingTransaction;
+  // 編集モードかどうか（リマインダーの仮データは除外）
+  const isEditMode = Boolean(editingTransaction?.id);
 
   const getDefaultCategoryForType = (type: TransactionType) => {
     const categories = getCategoriesByType(type);
@@ -135,15 +135,15 @@ export function TransactionModal({
    */
   useEffect(() => {
     if (open) {
-      if (isEditMode && editingTransaction) {
-        // 編集モード: 既存データで初期化
+      if (editingTransaction) {
+        // 編集モード or リマインダーからのプリセット
         reset({
           type: editingTransaction.type,
           amount: editingTransaction.amount,
           occurredOn: editingTransaction.occurredOn,
           category: editingTransaction.category ?? getDefaultCategoryForType(editingTransaction.type),
           note: editingTransaction.note ?? '',
-          isHouseholdAdvance: false, // 編集モードでは立替フラグは使用しない
+          isHouseholdAdvance: false, // 立替フラグはフォームでのみ使用
           payerUserId: editingTransaction.payerUserId,
           advanceToUserId: editingTransaction.advanceToUserId,
         });
@@ -164,7 +164,7 @@ export function TransactionModal({
         });
       }
     }
-  }, [open, defaultType, reset, currentUser?.id, isEditMode, editingTransaction]);
+  }, [open, defaultType, reset, currentUser?.id, editingTransaction]);
 
   /**
    * 立替以外では advanceToUserId をクリア

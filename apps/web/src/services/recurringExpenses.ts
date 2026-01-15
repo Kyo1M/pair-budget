@@ -5,7 +5,13 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import type { RecurringExpense, RecurringExpenseData, ExpenseCategoryKey } from '@/types/transaction';
+import type {
+  RecurringExpense,
+  RecurringExpenseData,
+  ExpenseCategoryKey,
+  RecurringExpenseType,
+  VariableExpenseReminder,
+} from '@/types/transaction';
 
 /**
  * Supabaseクライアントインスタンス
@@ -58,6 +64,7 @@ export async function createRecurringExpense(data: RecurringExpenseData): Promis
       note: data.note,
       payer_user_id: data.payerUserId,
       is_active: data.isActive ?? true,
+      expense_type: data.expenseType,
       created_by: user.id, // 明示的にcreated_byを設定
     })
     .select()
@@ -89,13 +96,14 @@ export async function updateRecurringExpense(
   data: Partial<RecurringExpenseData>
 ): Promise<RecurringExpense> {
   const updateData: Record<string, unknown> = {};
-  
+
   if (data.amount !== undefined) updateData.amount = data.amount;
   if (data.dayOfMonth !== undefined) updateData.day_of_month = data.dayOfMonth;
   if (data.category !== undefined) updateData.category = data.category;
   if (data.note !== undefined) updateData.note = data.note;
   if (data.payerUserId !== undefined) updateData.payer_user_id = data.payerUserId;
   if (data.isActive !== undefined) updateData.is_active = data.isActive;
+  if (data.expenseType !== undefined) updateData.expense_type = data.expenseType;
 
   const { data: result, error } = await supabase
     .from('recurring_expenses')
@@ -175,8 +183,76 @@ function transformRecurringExpense(dbData: Record<string, unknown>): RecurringEx
     note: dbData.note as string | null,
     payerUserId: dbData.payer_user_id as string,
     isActive: dbData.is_active as boolean,
+    expenseType: (dbData.expense_type as RecurringExpenseType) || 'fixed',
     createdBy: dbData.created_by as string,
     createdAt: dbData.created_at as string,
     updatedAt: dbData.updated_at as string,
   };
+}
+
+/**
+ * 固定費トランザクションを日付ベースで生成
+ *
+ * @param householdId - 世帯ID
+ * @param targetDate - 対象日 (YYYY-MM-DD形式、省略時は当日)
+ * @returns 生成されたトランザクション数
+ */
+export async function generateFixedTransactionsByDate(
+  householdId: string,
+  targetDate?: string
+): Promise<number> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('認証が必要です');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('generate_fixed_transactions_by_date', {
+    target_household: householdId,
+    target_date: targetDate || new Date().toISOString().split('T')[0],
+  });
+
+  if (error) {
+    console.error('固定費トランザクション生成エラー:', error);
+    throw new Error('固定費の自動生成に失敗しました');
+  }
+
+  return data || 0;
+}
+
+/**
+ * 変動費リマインダーを取得
+ *
+ * @param householdId - 世帯ID
+ * @param targetDate - 対象日 (YYYY-MM-DD形式、省略時は当日)
+ * @returns 変動費リマインダー一覧
+ */
+export async function getVariableExpenseReminders(
+  householdId: string,
+  targetDate?: string
+): Promise<VariableExpenseReminder[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('認証が必要です');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_variable_expense_reminders', {
+    target_household: householdId,
+    target_date: targetDate || new Date().toISOString().split('T')[0],
+  });
+
+  if (error) {
+    console.error('変動費リマインダー取得エラー:', error);
+    throw new Error('変動費リマインダーの取得に失敗しました');
+  }
+
+  return (data || []).map((item: Record<string, unknown>) => ({
+    id: item.id as string,
+    amount: item.amount as number,
+    dayOfMonth: item.day_of_month as number,
+    category: item.category as ExpenseCategoryKey,
+    note: item.note as string | null,
+    payerUserId: item.payer_user_id as string,
+  }));
 }

@@ -102,6 +102,7 @@ export function RecurringExpenseModal({
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<RecurringExpenseFormData>({
     resolver: zodResolver(recurringExpenseSchema) as Resolver<RecurringExpenseFormData>,
@@ -113,8 +114,12 @@ export function RecurringExpenseModal({
       note: '',
       payerUserId: defaultPayerUserId,
       isActive: true,
+      expenseType: 'fixed',
     },
   });
+
+  // 種類の監視（説明文の動的表示用）
+  const expenseType = watch('expenseType');
 
   /**
    * 編集モードの場合、フォームに値を設定
@@ -132,6 +137,7 @@ export function RecurringExpenseModal({
         note: '',
         payerUserId: defaultPayerUserId,
         isActive: true,
+        expenseType: 'fixed',
       });
     }
   }, [isEditMode, editingRecurringExpense, householdId, defaultPayerUserId, reset]);
@@ -186,9 +192,49 @@ export function RecurringExpenseModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* 種類（固定費/変動費） */}
+          <div className="space-y-2">
+            <Label>種類 *</Label>
+            <Controller
+              name="expenseType"
+              control={control}
+              render={({ field }) => (
+                <div className="space-y-2">
+                  <div className="flex space-x-4">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="fixed"
+                        checked={field.value === 'fixed'}
+                        onChange={() => field.onChange('fixed')}
+                        className="h-4 w-4"
+                      />
+                      <span>固定費</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="variable"
+                        checked={field.value === 'variable'}
+                        onChange={() => field.onChange('variable')}
+                        className="h-4 w-4"
+                      />
+                      <span>変動費</span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {expenseType === 'fixed'
+                      ? '指定日に自動で支出として登録されます（家賃など）'
+                      : '指定日にリマインダーが表示され、手動で入力します（水道代など）'}
+                  </p>
+                </div>
+              )}
+            />
+          </div>
+
           {/* 金額 */}
           <div className="space-y-2">
-            <Label htmlFor="amount">金額 *</Label>
+            <Label htmlFor="amount">金額 {expenseType === 'fixed' ? '*' : '(目安)'}</Label>
             <Controller
               name="amount"
               control={control}
