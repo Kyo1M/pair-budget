@@ -31,24 +31,12 @@ export async function createHousehold(name: string): Promise<Household> {
 
   const userId = session.user.id;
 
-  console.log('世帯作成開始:', { userId, householdName: name });
-  console.log('セッション情報:', {
-    accessToken: session.access_token ? '存在する' : '存在しない',
-    expiresAt: session.expires_at,
-  });
-
   // 新しい関数を使用して世帯作成とオーナーのメンバー追加を一括実行
   const { data: householdId, error: functionError } = await supabase
     .rpc('create_household_with_owner', {
       household_name: name,
       owner_user_id: userId,
     } as any);
-
-  console.log('世帯作成関数実行後の詳細:', {
-    hasData: !!householdId,
-    hasError: !!functionError,
-    errorCode: functionError?.code,
-  });
 
   if (functionError) {
     console.error('世帯作成エラー:', {
@@ -71,8 +59,6 @@ export async function createHousehold(name: string): Promise<Household> {
     console.error('世帯情報取得エラー:', fetchError);
     throw new Error('世帯情報の取得に失敗しました');
   }
-
-  console.log('世帯作成成功:', householdData);
 
   return {
     id: (householdData as any).id,

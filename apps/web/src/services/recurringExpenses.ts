@@ -46,8 +46,6 @@ export async function listRecurringExpenses(householdId: string): Promise<Recurr
  * @returns 作成された定期支出
  */
 export async function createRecurringExpense(data: RecurringExpenseData): Promise<RecurringExpense> {
-  console.log('Creating recurring expense with data:', data);
-  
   // 現在のユーザーIDを取得
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {

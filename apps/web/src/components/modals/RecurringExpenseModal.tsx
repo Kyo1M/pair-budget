@@ -147,9 +147,7 @@ export function RecurringExpenseModal({
    */
   const onSubmit: SubmitHandler<RecurringExpenseFormData> = async (formData) => {
     try {
-      console.log('Form data:', formData);
       const recurringExpenseData = toRecurringExpenseData(formData);
-      console.log('Transformed data:', recurringExpenseData);
 
       if (isEditMode && editingRecurringExpense) {
         await updateRecurringExpense(editingRecurringExpense.id, recurringExpenseData);

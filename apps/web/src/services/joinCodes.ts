@@ -30,14 +30,28 @@ const CODE_EXPIRY_HOURS = 24;
 
 /**
  * ランダムな参加コードを生成
- * 
+ *
+ * Math.random() は暗号学的に安全でないため、Web Crypto API
+ * (crypto.getRandomValues) を使用する。文字セット長で割り切れない範囲の
+ * バイトは棄却サンプリングで除外し、モジュロバイアスを避ける。
+ *
  * @returns 6桁の参加コード
  */
 function generateRandomCode(): string {
+  const charsetLength = CODE_CHARSET.length;
+  // 256 を charsetLength の倍数で切り捨てた閾値。これ以上のバイトは棄却する。
+  const maxAcceptable = Math.floor(256 / charsetLength) * charsetLength;
+
   let code = '';
-  for (let i = 0; i < CODE_LENGTH; i++) {
-    const randomIndex = Math.floor(Math.random() * CODE_CHARSET.length);
-    code += CODE_CHARSET[randomIndex];
+  while (code.length < CODE_LENGTH) {
+    const bytes = new Uint8Array(CODE_LENGTH);
+    crypto.getRandomValues(bytes);
+    for (let i = 0; i < bytes.length && code.length < CODE_LENGTH; i++) {
+      const byte = bytes[i];
+      if (byte < maxAcceptable) {
+        code += CODE_CHARSET[byte % charsetLength];
+      }
+    }
   }
   return code;
 }
