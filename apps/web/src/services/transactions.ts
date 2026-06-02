@@ -261,14 +261,21 @@ export async function deleteTransaction(id: string): Promise<void> {
     throw new Error('認証されていません。ログインしてください。');
   }
 
-  const { error } = await supabase
+  // .select() で削除された行を取得し、0行（RLS で弾かれた・存在しない）を検知する。
+  // これがないと RLS により削除対象が0行でも error=null となり「成功」扱いになってしまう。
+  const { data, error } = await supabase
     .from('transactions')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
 
   if (error) {
     console.error('取引削除エラー:', error);
     throw new Error('取引の削除に失敗しました');
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('取引を削除できませんでした（対象が見つからないか、権限がありません）');
   }
 }
 
