@@ -18,7 +18,7 @@ interface DashboardHeaderProps {
   /** ユーザーのメールアドレス */
   userEmail?: string;
   /** 表示モード */
-  viewMode: 'monthly' | 'yearly' | 'recurring';
+  viewMode: 'monthly' | 'yearly' | 'recurring' | 'recurring-income';
   /** 選択中の月 (YYYY-MM) */
   selectedMonth?: string;
   /** 選択中の年 */

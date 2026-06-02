@@ -29,7 +29,9 @@ import { MonthlyCategoryBreakdown } from '@/components/dashboard/MonthlyCategory
 import { YearlySummaryCards } from '@/components/dashboard/YearlySummaryCards';
 import { YearlyBalanceChart } from '@/components/dashboard/YearlyBalanceChart';
 import { RecurringExpenseList } from '@/components/dashboard/RecurringExpenseList';
+import { RecurringIncomeList } from '@/components/dashboard/RecurringIncomeList';
 import { VariableExpenseReminderBanner } from '@/components/dashboard/VariableExpenseReminderBanner';
+import { IncomeReminderBanner } from '@/components/dashboard/IncomeReminderBanner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomActionBar, type BottomAction } from '@/components/layout/BottomActionBar';
 import { Button } from '@/components/ui/button';
@@ -41,7 +43,8 @@ import { useDashboardStore } from '@/store/useDashboardStore';
 import { useSettlementStore } from '@/store/useSettlementStore';
 import { useYearlyDashboardStore } from '@/store/useYearlyDashboardStore';
 import { useRecurringExpenseStore } from '@/store/useRecurringExpenseStore';
-import type { Transaction, TransactionType, VariableExpenseReminder } from '@/types/transaction';
+import { useRecurringIncomeStore } from '@/store/useRecurringIncomeStore';
+import type { Transaction, TransactionType, VariableExpenseReminder, IncomeReminder } from '@/types/transaction';
 
 /**
  * 月をオフセットして YYYY-MM を生成
@@ -106,6 +109,15 @@ export default function Home() {
   const loadVariableReminders = useRecurringExpenseStore((state) => state.loadVariableReminders);
   const dismissReminder = useRecurringExpenseStore((state) => state.dismissReminder);
 
+  const recurringIncomes = useRecurringIncomeStore((state) => state.recurringIncomes);
+  const incomeReminders = useRecurringIncomeStore((state) => state.incomeReminders);
+  const loadRecurringIncomes = useRecurringIncomeStore((state) => state.loadRecurringIncomes);
+  const recurringIncomesLoading = useRecurringIncomeStore((state) => state.isLoading);
+  const recurringIncomeError = useRecurringIncomeStore((state) => state.error);
+  const clearRecurringIncomeError = useRecurringIncomeStore((state) => state.clearError);
+  const loadIncomeReminders = useRecurringIncomeStore((state) => state.loadIncomeReminders);
+  const dismissIncomeReminder = useRecurringIncomeStore((state) => state.dismissIncomeReminder);
+
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionModalType, setTransactionModalType] = useState<TransactionType>('expense');
@@ -114,7 +126,7 @@ export default function Home() {
     partnerId: string;
     direction: 'pay' | 'receive';
   } | null>(null);
-  const [activeView, setActiveView] = useState<'monthly' | 'yearly' | 'recurring'>('monthly');
+  const [activeView, setActiveView] = useState<'monthly' | 'yearly' | 'recurring' | 'recurring-income'>('monthly');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>();
   const selectedMonthRef = useRef(selectedMonth);
 
@@ -178,12 +190,16 @@ export default function Home() {
         // 変動費リマインダーの読み込み
         await loadVariableReminders(household.id);
 
+        // 収入リマインダーの読み込み
+        await loadIncomeReminders(household.id);
+
         // その他の初期データ読み込み
         await Promise.all([
           loadRecentTransactions(household.id),
           loadBalances(household.id),
           loadSettlements(household.id),
           loadRecurringExpenses(household.id),
+          loadRecurringIncomes(household.id),
         ]);
       } catch (error) {
         console.error('初期データ読み込みエラー:', error);
@@ -197,8 +213,10 @@ export default function Home() {
     loadBalances,
     loadSettlements,
     loadRecurringExpenses,
+    loadRecurringIncomes,
     generateFixedTransactions,
     loadVariableReminders,
+    loadIncomeReminders,
     loadTransactions,
     loadMonthlySummary,
   ]);
@@ -240,6 +258,13 @@ export default function Home() {
       clearRecurringExpenseError();
     }
   }, [recurringExpenseError, clearRecurringExpenseError]);
+
+  useEffect(() => {
+    if (recurringIncomeError) {
+      toast.error(recurringIncomeError);
+      clearRecurringIncomeError();
+    }
+  }, [recurringIncomeError, clearRecurringIncomeError]);
 
   /**
    * ログアウト処理
@@ -306,6 +331,29 @@ export default function Home() {
       category: reminder.category,
       note: reminder.note,
       payerUserId: reminder.payerUserId,
+      advanceToUserId: null,
+      createdBy: user?.id || '',
+      createdAt: '',
+      updatedAt: '',
+    });
+    setIsTransactionModalOpen(true);
+  };
+
+  /**
+   * 収入リマインダーから収入登録
+   */
+  const handleRegisterFromIncomeReminder = (reminder: IncomeReminder) => {
+    setTransactionModalType('income');
+    // リマインダーの情報をセットしてプリセット値として使用
+    setEditingTransaction({
+      id: '',
+      householdId: household?.id || '',
+      type: 'income',
+      amount: reminder.amount,
+      occurredOn: new Date().toISOString().split('T')[0],
+      category: reminder.category,
+      note: reminder.note,
+      payerUserId: reminder.recipientUserId,
       advanceToUserId: null,
       createdBy: user?.id || '',
       createdAt: '',
@@ -413,8 +461,15 @@ export default function Home() {
   }, [household, activeView, selectedYear, loadYearlySummary]);
 
   const handleViewChange = (value: string) => {
-    const mode = value === 'yearly' ? 'yearly' : value === 'recurring' ? 'recurring' : 'monthly';
-    setActiveView(mode);
+    if (value === 'yearly') {
+      setActiveView('yearly');
+    } else if (value === 'recurring') {
+      setActiveView('recurring');
+    } else if (value === 'recurring-income') {
+      setActiveView('recurring-income');
+    } else {
+      setActiveView('monthly');
+    }
   };
 
   const yearlyChartData = useMemo(() => yearlyDifferences, [yearlyDifferences]);
@@ -508,10 +563,11 @@ export default function Home() {
 
       <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
         <Tabs value={activeView} onValueChange={handleViewChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 md:w-auto">
+          <TabsList className="grid w-full grid-cols-4 md:w-auto">
             <TabsTrigger value="monthly">月次ビュー</TabsTrigger>
             <TabsTrigger value="yearly">年次ビュー</TabsTrigger>
             <TabsTrigger value="recurring">定期支出</TabsTrigger>
+            <TabsTrigger value="recurring-income">定期収入</TabsTrigger>
           </TabsList>
 
           <TabsContent value="monthly" className="space-y-6">
@@ -521,6 +577,14 @@ export default function Home() {
               members={members}
               onRegister={handleRegisterFromReminder}
               onDismiss={dismissReminder}
+            />
+
+            {/* 収入リマインダーバナー */}
+            <IncomeReminderBanner
+              reminders={incomeReminders}
+              members={members}
+              onRegister={handleRegisterFromIncomeReminder}
+              onDismiss={dismissIncomeReminder}
             />
 
             <SummaryCards summary={summary} isLoading={summaryLoading || transactionsLoading} />
@@ -560,6 +624,15 @@ export default function Home() {
               members={members}
               recurringExpenses={recurringExpenses}
               isLoading={recurringExpensesLoading}
+            />
+          </TabsContent>
+
+          <TabsContent value="recurring-income" className="space-y-6">
+            <RecurringIncomeList
+              householdId={household.id}
+              members={members}
+              recurringIncomes={recurringIncomes}
+              isLoading={recurringIncomesLoading}
             />
           </TabsContent>
         </Tabs>

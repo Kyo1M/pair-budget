@@ -224,3 +224,69 @@ export interface VariableExpenseReminder {
   /** 支払者ユーザーID */
   payerUserId: string;
 }
+
+/**
+ * 定期収入情報
+ */
+export interface RecurringIncome {
+  /** 定期収入ID */
+  id: string;
+  /** 世帯ID */
+  householdId: string;
+  /** 金額（目安） */
+  amount: number;
+  /** 毎月の受取日 (1-31) */
+  dayOfMonth: number;
+  /** カテゴリキー */
+  category: IncomeCategoryKey;
+  /** メモ */
+  note: string | null;
+  /** 受取者ユーザーID */
+  recipientUserId: string;
+  /** 有効/無効 */
+  isActive: boolean;
+  /** 作成者ユーザーID */
+  createdBy: string;
+  /** 作成日時 */
+  createdAt: string;
+  /** 更新日時 */
+  updatedAt: string;
+}
+
+/**
+ * 定期収入作成時の入力データ
+ */
+export interface RecurringIncomeData {
+  /** 世帯ID */
+  householdId: string;
+  /** 金額（目安） */
+  amount: number;
+  /** 毎月の受取日 (1-31) */
+  dayOfMonth: number;
+  /** カテゴリキー */
+  category: IncomeCategoryKey;
+  /** メモ */
+  note?: string | null;
+  /** 受取者ユーザーID */
+  recipientUserId: string;
+  /** 有効/無効 */
+  isActive?: boolean;
+}
+
+/**
+ * 収入リマインダー情報
+ */
+export interface IncomeReminder {
+  /** 定期収入ID */
+  id: string;
+  /** 目安金額 */
+  amount: number;
+  /** 毎月の受取日 (1-31) */
+  dayOfMonth: number;
+  /** カテゴリキー */
+  category: IncomeCategoryKey;
+  /** メモ */
+  note: string | null;
+  /** 受取者ユーザーID */
+  recipientUserId: string;
+}
