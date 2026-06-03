@@ -92,8 +92,8 @@ SET search_path = public
 AS $$
 DECLARE
   current_day INTEGER;
-  current_year INTEGER;
-  current_month_num INTEGER;
+  month_start DATE;
+  next_month_start DATE;
 BEGIN
   -- 認証チェック
   IF NOT public.is_household_member(target_household) THEN
@@ -101,8 +101,8 @@ BEGIN
   END IF;
 
   current_day := EXTRACT(DAY FROM target_date);
-  current_year := EXTRACT(YEAR FROM target_date);
-  current_month_num := EXTRACT(MONTH FROM target_date);
+  month_start := DATE_TRUNC('month', target_date)::date;
+  next_month_start := (DATE_TRUNC('month', target_date) + INTERVAL '1 month')::date;
 
   RETURN QUERY
   SELECT
@@ -118,6 +118,7 @@ BEGIN
     AND ri.day_of_month <= current_day
     -- 今月、同一カテゴリ かつ 同一受取者 の収入がまだ登録されていないもののみリマインドする。
     -- income 取引は payer_user_id に受取者を記録する慣習に依拠（リマインダー経由の登録で付与）。
+    -- occurred_on は EXTRACT ではなく範囲比較にし、インデックスが効く(sargable)ようにする。
     AND NOT EXISTS (
       SELECT 1
       FROM public.transactions t
@@ -125,8 +126,8 @@ BEGIN
         AND t.type = 'income'
         AND t.category = ri.category
         AND t.payer_user_id IS NOT DISTINCT FROM ri.recipient_user_id
-        AND EXTRACT(YEAR FROM t.occurred_on) = current_year
-        AND EXTRACT(MONTH FROM t.occurred_on) = current_month_num
+        AND t.occurred_on >= month_start
+        AND t.occurred_on < next_month_start
     );
 END;
 $$;

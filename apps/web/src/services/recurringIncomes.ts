@@ -5,6 +5,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { formatLocalDate } from '@/lib/utils';
 import type {
   RecurringIncome,
   RecurringIncomeData,
@@ -145,7 +146,8 @@ export async function getIncomeReminders(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.rpc as any)('get_income_reminders', {
     target_household: householdId,
-    target_date: targetDate || new Date().toISOString().split('T')[0],
+    // ローカル日付を渡す（toISOString は UTC のため JST 早朝に前日扱いになる）
+    target_date: targetDate || formatLocalDate(),
   });
 
   if (error) {
@@ -180,7 +182,8 @@ function transformRecurringIncome(dbData: Record<string, unknown>): RecurringInc
     recipientUserId: dbData.recipient_user_id as string,
     isActive: dbData.is_active as boolean,
     createdBy: dbData.created_by as string,
-    createdAt: dbData.created_at as string,
-    updatedAt: dbData.updated_at as string,
+    // created_at / updated_at は DB 型上 nullable のため、null フォールバックを用意
+    createdAt: (dbData.created_at as string | null) ?? new Date().toISOString(),
+    updatedAt: (dbData.updated_at as string | null) ?? new Date().toISOString(),
   };
 }

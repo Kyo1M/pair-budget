@@ -36,6 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomActionBar, type BottomAction } from '@/components/layout/BottomActionBar';
 import { Button } from '@/components/ui/button';
 import { HOUSEHOLD_SETTLEMENT_KEY } from '@/lib/validations/settlement';
+import { formatLocalDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useHouseholdStore } from '@/store/useHouseholdStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
@@ -327,7 +328,7 @@ export default function Home() {
       householdId: household?.id || '',
       type: 'expense',
       amount: reminder.amount,
-      occurredOn: new Date().toISOString().split('T')[0],
+      occurredOn: formatLocalDate(),
       category: reminder.category,
       note: reminder.note,
       payerUserId: reminder.payerUserId,
@@ -350,7 +351,7 @@ export default function Home() {
       householdId: household?.id || '',
       type: 'income',
       amount: reminder.amount,
-      occurredOn: new Date().toISOString().split('T')[0],
+      occurredOn: formatLocalDate(),
       category: reminder.category,
       note: reminder.note,
       payerUserId: reminder.recipientUserId,
