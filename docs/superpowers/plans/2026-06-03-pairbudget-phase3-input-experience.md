@@ -6,7 +6,9 @@
 
 **Architecture:** Tailwind v4 の `@theme`/`:root`（`apps/web/src/app/globals.css`）に `--pb-*` ブランドトークンを定義し、shadcn のセマンティック変数へマッピングして既存コンポーネントを着せ替える。電卓は純粋ロジック（`lib/calculator.ts`）＋ shadcn Popover の薄い UI に分離して TDD する。「場所」はマイグレーション 009（`place` カラム＋`get_place_suggestions` RPC）→ 型 → service → zod → フォームの順で縦に通す。`page.tsx` は各 `TabsContent` を `*DashboardView` コンポーネントへ機械的に抽出する。
 
-**Tech Stack:** Next.js 14 App Router / TypeScript / Tailwind v4 / shadcn/ui (new-york) / react-hook-form + zod / Zustand / Supabase (Postgres + RLS) / Vitest + React Testing Library / lucide-react
+**Tech Stack:** Next.js 15.5.9（App Router, Turbopack）/ React 19.1.0 / TypeScript / Tailwind v4 / shadcn/ui (new-york) / react-hook-form 7 + zod 4 / Zustand / Supabase (Postgres + RLS) / Vitest + React Testing Library / lucide-react
+
+> **検証で判明した前提（Codex レビュー反映）**: 実プロジェクトは **Next 15.5.9 / React 19.1.0 / zod 4**（CLAUDE.md の「Next 14」は古い）。`dev`/`build` は `--turbopack`。`services/transactions.ts` は **各関数内で `createClient()`**（モジュール singleton ではない）。`createTransaction`/`updateTransaction` は `(supabase as any)` で insert/update している。`amount` は DB で `NUMERIC(12,2)`＝**整数10桁上限**。`toTransactionData` は `lib/validations/transaction.ts` にある（モーダルではない）。
 
 **基準ドキュメント:** リポジトリ直下 `DESIGN.md`（特に §2 カラー, §3 タイポ, §6 コンポーネント, §7 実装ガイド, §7-4 適用範囲）
 **ブランチ:** `feature/design-system`（`DESIGN.md` を commit `c641b47` で追加済み）
@@ -44,8 +46,8 @@
 **変更**
 - `apps/web/src/app/globals.css` — `--pb-*` トークン、shadcn 変数マッピング、`@theme inline` 拡張、`--font-sans` 切替。
 - `apps/web/src/app/layout.tsx` — フォントを M PLUS Rounded 1c に。`font-sans` を body に付与。
-- `apps/web/src/components/modals/TransactionModal.tsx` — 金額欄に電卓、場所フィールド、サジェスト読み込み、`toTransactionData`/`reset` に `place`。
-- `apps/web/src/lib/validations/transaction.ts` — `transactionSchema` に `place`。
+- `apps/web/src/components/modals/TransactionModal.tsx` — 金額欄に電卓、場所フィールド、サジェスト読み込み、`defaultValues`/`reset` に `place`。
+- `apps/web/src/lib/validations/transaction.ts` — `transactionSchema` と `toTransactionData` に `place`（収入は null 固定）。
 - `apps/web/src/types/transaction.ts` — `TransactionData`/`Transaction` に `place`。
 - `apps/web/src/types/supabase.ts` — `transactions` 型に `place`、`Functions` に `get_place_suggestions`。
 - `apps/web/src/services/transactions.ts` — `TRANSACTION_SELECT`/`mapTransaction`/`createTransaction`/`updateTransaction` に `place`、`getPlaceSuggestions()` 追加。
@@ -97,6 +99,11 @@ DESIGN.md §7-1〜7-3 をそのまま実装に落とす。視覚変更なので�
   --pb-shadow-lg: 0 10px 34px rgba(40, 40, 80, 0.1);
   --pb-shadow-primary: 0 6px 16px rgba(91, 108, 240, 0.3);
 
+  --pb-radius-sm: 10px;
+  --pb-radius-md: 13px;
+  --pb-radius-lg: 18px;
+  --pb-radius-xl: 24px;
+
   /* === shadcn semantic vars → brand (override neutral defaults) === */
   --radius: 0.8125rem; /* 13px = --pb-radius-md */
   --background: var(--pb-bg);
@@ -133,7 +140,9 @@ DESIGN.md §7-1〜7-3 をそのまま実装に落とす。視覚変更なので�
   --color-pb-primary: var(--pb-primary);
   --color-pb-primary-soft: var(--pb-primary-soft);
   --color-pb-income: var(--pb-income);
+  --color-pb-income-soft: var(--pb-income-soft);
   --color-pb-expense: var(--pb-expense);
+  --color-pb-expense-soft: var(--pb-expense-soft);
   --color-pb-coral: var(--pb-coral);
   --color-pb-amber: var(--pb-amber);
   --color-pb-danger: var(--pb-danger);
@@ -174,6 +183,7 @@ const rounded = M_PLUS_Rounded_1c({
   subsets: ["latin"], // 日本語グリフは大きいため latin サブセット指定
   display: "swap",
   preload: false, // 巨大プリロードを避ける
+  fallback: ["Hiragino Maru Gothic ProN", "Hiragino Sans", "system-ui", "sans-serif"],
 });
 
 const geistMono = Geist_Mono({
@@ -198,7 +208,8 @@ const geistMono = Geist_Mono({
 
 Run: `pnpm --filter web dev` → ブラウザで `http://localhost:3000` を開く。
 Expected: 見出し・本文の**日本語が丸ゴシック**で表示される。
-**もし日本語が丸ゴで出ない場合**（`subsets: ["latin"]` で日本語グリフが落ちている）: `next/font/local` で self-host するか、`app/layout.tsx` で `<link>` 読み込みに切替（DESIGN.md §7-3 の注記）。この分岐に入ったら対応をコミットメッセージに明記。
+**確認方法（目視だけにしない）**: `fallback` に Hiragino Maru Gothic を入れたため、macOS では日本語が丸ゴで出ても「Web フォントが落ちて OS フォントにフォールバックしている」可能性がある。DevTools の Network で `M_PLUS_Rounded_1c` の woff2 が読まれているか、Computed の `font-family` が `--font-rounded`（`__M_PLUS_Rounded_1c_*`）になっているかを確認する。
+**もし Web フォントが日本語に効かない場合**（`subsets: ["latin"]` で日本語グリフが落ちている）: `next/font/local` で self-host するか、`app/layout.tsx` で `<link>` 読み込みに切替（DESIGN.md §7-3 の注記）。この分岐に入ったら対応をコミットメッセージに明記。
 
 - [ ] **Step 4: ビルド確認**
 
@@ -219,6 +230,8 @@ git commit -m "feat: UIフォントをM PLUS Rounded 1c(丸ゴシック)に変�
 金額入力欄の右に電卓ボタン。押すとポップオーバーで足し算し、「金額に入れる」で金額欄へ反映（フル電卓にはしない）。計算は純粋関数に分離して TDD する。
 
 ### Task 3: 電卓の純粋ロジック（TDD）
+
+> **制約メモ（Codex 指摘反映）**: 電卓は整数の足し算のみ（小数なし・**10桁上限**）。既存 `amountSchema`（`lib/validations/transaction.ts`）は小数・桁上限を強制しないが、それは本計画の対象外。電卓側で整数10桁に収め、DB の `NUMERIC(12,2)`（整数10桁）超過を避ける。amount への `.int()`/`.max()` 追加は別タスク。
 
 **Files:**
 - Create: `apps/web/src/lib/calculator.ts`
@@ -254,10 +267,10 @@ describe('inputDigit', () => {
     expect(s.current).toBe('5');
   });
 
-  it('12桁を超える入力は無視する', () => {
+  it('10桁を超える入力は無視する（DB amount=NUMERIC(12,2)）', () => {
     let s = initialCalcState;
     for (let i = 0; i < 15; i++) s = inputDigit(s, '9');
-    expect(s.current).toHaveLength(12);
+    expect(s.current).toHaveLength(10);
   });
 });
 
@@ -361,10 +374,10 @@ export interface CalcState {
 
 export const initialCalcState: CalcState = { entries: [], current: '' };
 
-/** 数字を 1 文字入力する。先頭の余分な 0 を避け、12 桁を上限にする。 */
+/** 数字を 1 文字入力する。先頭の余分な 0 を避け、10 桁を上限にする（DB amount=NUMERIC(12,2)=整数10桁）。 */
 export function inputDigit(state: CalcState, digit: string): CalcState {
   const next = state.current === '0' ? digit : state.current + digit;
-  if (next.length > 12) {
+  if (next.length > 10) {
     return state;
   }
   return { ...state, current: next };
@@ -690,6 +703,18 @@ BEGIN;
 ALTER TABLE public.transactions
   ADD COLUMN IF NOT EXISTS place TEXT;
 
+-- 50文字上限（zod と DB を一致させる。冪等化のため存在チェック）
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'transactions_place_len_chk'
+  ) THEN
+    ALTER TABLE public.transactions
+      ADD CONSTRAINT transactions_place_len_chk
+      CHECK (place IS NULL OR char_length(place) <= 50);
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_transactions_household_place
   ON public.transactions(household_id, place);
 
@@ -773,18 +798,10 @@ git commit -m "feat: transactions に place カラムとサジェストRPCを追
 - `Insert`: `place?: string | null`
 - `Update`: `place?: string | null`
 
-- [ ] **Step 3: supabase.ts の Functions に get_place_suggestions を追加**
+- [ ] **Step 3: rpc の型方針（Functions 手編集は不要）**
 
-同ファイルの `Database['public']['Functions']` 内に、既存 RPC（例: `get_income_reminders`）と同じ書式で追加：
-
-```ts
-      get_place_suggestions: {
-        Args: { target_household: string }
-        Returns: { place: string }[]
-      }
-```
-
-> 理想は `supabase gen types typescript ...` での再生成（CLAUDE.md PB-66）。本タスクは手当てで型を通し、再生成は別途。
+`get_place_suggestions` の呼び出しは Task 9 の service 側で `(supabase as any).rpc(...)`（既存 `createTransaction`/`updateTransaction` の insert/update と同じ `as any` 方式）にするため、`Database['public']['Functions']` の手編集は**不要**。
+理想は migration 009 適用後に `supabase gen types typescript ...` で型を再生成し（CLAUDE.md PB-66）、`place` 列・Functions をまとめて自動反映させること。本タスクの手編集（place 列の Row/Insert/Update）は再生成までの暫定。
 
 - [ ] **Step 4: 型チェック**
 
@@ -833,19 +850,23 @@ git commit -m "feat: place を型(transaction/supabase)に追加"
   }
 ```
 
-（`updateTransaction` が `note` をどう扱っているかに合わせること。条件分岐でなく一括代入なら同じスタイルで `place` を含める。）
+（確認済：`updateTransaction` は `if (input.note !== undefined) { payload.note = input.note?.trim() ? input.note.trim() : null; }` の形。同じスタイルで `place` を追加する。`payload` 型は `Partial<...['Update']>` なので Task 8 の Update に place が必要。）
 
 - [ ] **Step 5: getPlaceSuggestions を追加**
 
-ファイル末尾に追加：
+ファイル末尾に追加（**既存関数と同じく `createClient()` を関数内で呼ぶ**。`createClient` の import は既存のものを使う）：
 
 ```ts
 /**
  * 世帯内の過去の場所（place）をサジェスト用に取得する。
- * @returns 重複なし・昇順の場所リスト
+ * @returns 重複なし・昇順の場所リスト。失敗時は空配列。
  */
 export async function getPlaceSuggestions(householdId: string): Promise<string[]> {
-  const { data, error } = await supabase.rpc('get_place_suggestions', {
+  const supabase = createClient();
+
+  // rpc は既存の insert/update と同様に型アサーションで通す（Functions 型未生成のため）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('get_place_suggestions', {
     target_household: householdId,
   });
 
@@ -854,13 +875,11 @@ export async function getPlaceSuggestions(householdId: string): Promise<string[]
     return [];
   }
 
-  return (data ?? [])
+  return ((data ?? []) as { place: string | null }[])
     .map((row) => row.place)
     .filter((place): place is string => Boolean(place));
 }
 ```
-
-> このファイルは Supabase クライアントをモジュール先頭で `const supabase = createClient();` のシングルトンとして保持している（既存関数に倣う）。`createClient` の import は既存のものを使う。
 
 - [ ] **Step 6: 型チェック**
 
@@ -956,11 +975,13 @@ git commit -m "feat: zod transactionSchema に place を追加(TDD)"
 import 群に：
 
 ```tsx
-import { useState, useEffect } from 'react'; // 既存の import に place 用を追記（重複させない）
+// 既存の `import { useEffect, useMemo } from 'react';` を useState 追加に変更：
+import { useEffect, useMemo, useState } from 'react';
+// service から追加 import：
 import { getPlaceSuggestions } from '@/services/transactions';
 ```
 
-コンポーネント本体（他の `useState` 付近）に：
+コンポーネント本体（`watch(...)` 群の付近）に：
 
 ```tsx
 const [placeSuggestions, setPlaceSuggestions] = useState<string[]>([]);
@@ -980,15 +1001,16 @@ useEffect(() => {
 }, [open, householdId]);
 ```
 
-- [ ] **Step 3: reset() の既定値に place を追加**
+- [ ] **Step 3: defaultValues と reset() の既定値に place を追加**
 
-`reset({ ... })` を呼んでいる箇所（編集モードと新規モードの両方）に `place` を追加：
-- 編集モード: `place: editingTransaction.place ?? '',`
-- 新規モード: `place: '',`
+`useForm({ defaultValues: { ... } })`（初期値）と、open 時 `useEffect` 内の `reset({ ... })` 2箇所に `place` を追加：
+- `useForm` の defaultValues: `place: '',`
+- 編集モード reset: `place: editingTransaction.place ?? '',`
+- 新規モード reset: `place: '',`
 
 - [ ] **Step 4: 場所フィールドの JSX を追加**
 
-カテゴリ欄（または note 欄）の後に追加。`transactionType` はこのファイルで type を watch している値（`categoriesForType` を導出している type と同じもの）を使う。収入では出さない：
+メモ（note）欄の後・支払者ブロックの前に追加。`transactionType` は既存の `watch('type')` の値。収入では出さない：
 
 ```tsx
 {transactionType !== 'income' && (
@@ -1011,12 +1033,12 @@ useEffect(() => {
 )}
 ```
 
-- [ ] **Step 5: toTransactionData に place を含める**
+- [ ] **Step 5: toTransactionData（`lib/validations/transaction.ts`）に place を含める**
 
-フォーム値 → `TransactionData` 変換（`toTransactionData`）の返却オブジェクトに追加：
+`toTransactionData` の return オブジェクト末尾（`advanceToUserId: resolvedAdvanceToUserId,` の後）に追加。**収入では場所を保存しない**（収入タブに切替後も支出で入力した place が残って保存されるのを防ぐため `resolvedType` で判定）：
 
 ```ts
-    place: data.place?.trim() ? data.place.trim() : null,
+    place: resolvedType === 'income' ? null : (data.place?.trim() ? data.place.trim() : null),
 ```
 
 - [ ] **Step 6: 手動で動作確認**
@@ -1069,15 +1091,15 @@ interface YearlyDashboardViewProps {
 
 export function YearlyDashboardView({ summary, chartData, isLoading }: YearlyDashboardViewProps) {
   return (
-    <div className="space-y-4">
+    <>
       <YearlySummaryCards summary={summary} isLoading={isLoading} />
       <YearlyBalanceChart data={chartData} isLoading={isLoading} />
-    </div>
+    </>
   );
 }
 ```
 
-（page.tsx の年次タブが持つ追加のラッパ class があればそれに合わせる。`defaultMetric` を page 側が渡していたら props に足す。）
+（確認済：page.tsx は `<TabsContent value="yearly" className="space-y-6">` 直下に2コンポーネント・`defaultMetric` 無し。**フラグメントを返し**、spacing は TabsContent 側に残すので二重ラップにならない。両子とも `yearlyLoading` を使うため `isLoading` 一本でよい。）
 
 - [ ] **Step 2: page.tsx で差し替え**
 
@@ -1206,7 +1228,7 @@ interface MonthlyDashboardViewProps {
 
 export function MonthlyDashboardView(props: MonthlyDashboardViewProps) {
   return (
-    <div className="space-y-4">
+    <>
       <VariableExpenseReminderBanner
         reminders={props.variableReminders}
         members={props.members}
@@ -1219,8 +1241,11 @@ export function MonthlyDashboardView(props: MonthlyDashboardViewProps) {
         onRegister={props.onRegisterIncomeReminder}
         onDismiss={props.onDismissIncomeReminder}
       />
-      <SummaryCards summary={props.summary} isLoading={props.summaryLoading} />
-      <div className="grid gap-4 md:grid-cols-2">
+      <SummaryCards
+        summary={props.summary}
+        isLoading={props.summaryLoading || props.transactionsLoading}
+      />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <MonthlyCategoryBreakdown
           transactions={props.transactions}
           isLoading={props.transactionsLoading}
@@ -1241,12 +1266,12 @@ export function MonthlyDashboardView(props: MonthlyDashboardViewProps) {
         onEdit={props.onEditTransaction}
         onDelete={props.onDeleteTransaction}
       />
-    </div>
+    </>
   );
 }
 ```
 
-> page.tsx の現行 JSX（L574-615）と**子コンポーネントへの props 名・ラッパ class を突き合わせ**、差異があれば本コンポーネント側を現行に一致させる（grid の class、banner の表示条件など）。banner が「reminders が空なら null を返す」設計なら現行通りそのまま動く。
+> 確認済（現行 page.tsx L574-615）：TabsContent は `className="space-y-6"`、SummaryCards は `isLoading={summaryLoading || transactionsLoading}`、grid は `gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]`、BalanceCard の currentUserId は `user?.id`。上のコードはこれに一致済み。**フラグメントを返し spacing は TabsContent 側に残す**（二重ラップ回避）。banner は「reminders が空なら null を返す」設計のため現行どおり動く。
 
 - [ ] **Step 2: page.tsx で差し替え**
 
@@ -1287,4 +1312,5 @@ git commit -m "refactor: 月次タブを MonthlyDashboardView に抽出し page.
 - **Spec coverage**: DESIGN.md の ①トークン(§7-1,7-2)=Task1 / ②フォント(§7-3)=Task2 / ③かんたん電卓(§6)=Task3-6 / ④場所フィールド=Task7-11 / ⑤page.tsx分割=Task12-14。全要件にタスク対応あり。
 - **型整合**: `place` をフォーム(`place`)→zod(`place`)→`TransactionData.place`→DB列(`place`)→`get_place_suggestions` まで同名で一貫。電卓 API（`inputDigit`/`pressPlus`/`backspace`/`clearCalc`/`calcTotal`/`formatCalcTape`/`CalcState`/`initialCalcState`）はテスト・実装・UI で一致。
 - **No placeholders**: 新規ファイルは完全コード。page.tsx 分割は「既存 JSX の移動＋props 契約」を明示（行範囲つき）。
-- **前提**: `setValue`・`householdId`(prop)・watch 済み type・`toTransactionData` は調査で TransactionModal に存在を確認済み。実変数名が異なる場合は現行コードに合わせる旨を各ステップに明記。
+- **前提**: `setValue`・`householdId`(prop)・`watch('type')`・`toTransactionData`(validations 側) は実コードで確認済み。
+- **Codex レビュー反映済み**: ①service の `createClient()` は関数内呼び出し ②電卓桁上限を 10 桁（NUMERIC(12,2)）に ③`place` は収入で null 固定（タブ残留防止）④`@theme` に income-soft/expense-soft 追加 ⑤月次/年次抽出は現行 class に一致（gap-6 lg:grid-cols-[...]、`summaryLoading || transactionsLoading`、フラグメント返し）⑥フォント fallback 追加＋Web フォント実機検証 ⑦migration に place 50 文字 CHECK ⑧Next 15/React 19/zod 4 へ前提更新 ⑨rpc は `(supabase as any)` で型回避。
