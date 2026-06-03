@@ -8,9 +8,59 @@ import { getTransactionCategory } from '@/constants/categories';
 import {
   EXPENSE_CATEGORY_KEYS,
   type ExpenseCategoryKey,
+  type MonthlySummary,
   type Transaction,
   type TransactionCategory,
 } from '@/types/transaction';
+
+/**
+ * 取引が「家計の支出」に該当するか判定する。
+ *
+ * このアプリの会計モデル（家計が主体）に基づく:
+ * - 支出 (expense) は家計の支出。
+ * - 世帯向け立替 (advance かつ advanceToUserId == null) は実際の家計の支出なので含める。
+ * - 個人向け立替 (advance かつ advanceToUserId != null) は個人間の貸付であり、
+ *   家計の共通支出ではないため支出には含めない（残高・精算でのみ扱う）。
+ *
+ * @param transaction - 対象取引
+ * @returns 家計の支出に含めるべきなら true
+ */
+export function isHouseholdExpense(transaction: Transaction): boolean {
+  if (transaction.type === 'expense') {
+    return true;
+  }
+  if (transaction.type === 'advance' && transaction.advanceToUserId == null) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 取引一覧から収支サマリー（収入合計・支出合計・差額）を計算する。
+ *
+ * 会計モデルに従い、収入は収入合計へ、家計の支出（支出＋世帯向け立替）は支出合計へ計上し、
+ * 個人向け立替は除外する。月次・年次サマリーで共有する単一の集計ロジック。
+ *
+ * @param transactions - 対象取引一覧
+ * @returns 収支サマリー
+ */
+export function calculateTransactionSummary(transactions: Transaction[]): MonthlySummary {
+  const summary = transactions.reduce<MonthlySummary>(
+    (acc, transaction) => {
+      if (transaction.type === 'income') {
+        acc.incomeTotal += transaction.amount;
+      } else if (isHouseholdExpense(transaction)) {
+        acc.expenseTotal += transaction.amount;
+      }
+      // 個人向け立替 (advanceToUserId != null) は家計の支出ではないため集計しない
+      return acc;
+    },
+    { incomeTotal: 0, expenseTotal: 0, balance: 0 }
+  );
+
+  summary.balance = summary.incomeTotal - summary.expenseTotal;
+  return summary;
+}
 
 /**
  * 支出カテゴリ内訳のエントリ

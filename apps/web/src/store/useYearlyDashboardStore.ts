@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { getTransactionsByDateRange } from '@/services/transactions';
+import { calculateTransactionSummary, isHouseholdExpense } from '@/lib/dashboard';
 import type { Transaction } from '@/types/transaction';
 
 interface MonthlyDifference {
@@ -66,9 +67,11 @@ function buildMonthlyDifferences(transactions: Transaction[]): MonthlyDifference
 
     const entry = months[month - 1];
 
+    // 会計モデルに従い、収入は収入合計へ、家計の支出（支出＋世帯向け立替）は支出合計へ。
+    // 個人向け立替は家計の支出ではないため除外する。
     if (transaction.type === 'income') {
       entry.incomeTotal += transaction.amount;
-    } else {
+    } else if (isHouseholdExpense(transaction)) {
       entry.expenseTotal += transaction.amount;
     }
 
@@ -79,22 +82,8 @@ function buildMonthlyDifferences(transactions: Transaction[]): MonthlyDifference
 }
 
 function calculateYearlySummary(transactions: Transaction[]): YearlySummary {
-  return transactions.reduce<YearlySummary>(
-    (acc, transaction) => {
-      if (transaction.type === 'income') {
-        acc.incomeTotal += transaction.amount;
-      } else {
-        acc.expenseTotal += transaction.amount;
-      }
-      acc.balance = acc.incomeTotal - acc.expenseTotal;
-      return acc;
-    },
-    {
-      incomeTotal: 0,
-      expenseTotal: 0,
-      balance: 0,
-    }
-  );
+  // 月次サマリーと同じ会計ロジック（家計の支出のみ集計し、個人向け立替は除外）を共有する。
+  return calculateTransactionSummary(transactions);
 }
 
 export const useYearlyDashboardStore = create<YearlyDashboardStore>((set) => ({

@@ -5,7 +5,8 @@
  */
 
 import { create } from 'zustand';
-import type { MonthlySummary, Transaction } from '@/types/transaction';
+import type { MonthlySummary } from '@/types/transaction';
+import { calculateTransactionSummary } from '@/lib/dashboard';
 import { useTransactionStore } from '@/store/useTransactionStore';
 
 /**
@@ -14,31 +15,6 @@ import { useTransactionStore } from '@/store/useTransactionStore';
 function getCurrentMonth(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-/**
- * 取引一覧から月次サマリーを計算
- * 
- * @param transactions - 取引一覧
- * @returns 月次サマリー
- */
-function calculateSummary(transactions: Transaction[]): MonthlySummary {
-  return transactions.reduce<MonthlySummary>(
-    (acc, transaction) => {
-      if (transaction.type === 'income') {
-        acc.incomeTotal += transaction.amount;
-      } else {
-        acc.expenseTotal += transaction.amount;
-      }
-      acc.balance = acc.incomeTotal - acc.expenseTotal;
-      return acc;
-    },
-    {
-      incomeTotal: 0,
-      expenseTotal: 0,
-      balance: 0,
-    }
-  );
 }
 
 /**
@@ -84,7 +60,7 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
 
       const transactions = useTransactionStore.getState().transactions;
       set({
-        summary: calculateSummary(transactions),
+        summary: calculateTransactionSummary(transactions),
         isLoading: false,
       });
     } catch (error) {

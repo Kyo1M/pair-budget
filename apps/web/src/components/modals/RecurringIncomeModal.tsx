@@ -1,5 +1,5 @@
 /**
- * 定期支出登録モーダル
+ * 定期収入登録モーダル
  */
 
 'use client';
@@ -20,21 +20,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { HouseholdMember } from '@/types/household';
-import type { RecurringExpense } from '@/types/transaction';
+import type { RecurringIncome } from '@/types/transaction';
 import {
-  recurringExpenseSchema,
-  type RecurringExpenseFormData,
-  toRecurringExpenseFormData,
-  toRecurringExpenseData,
-} from '@/lib/validations/recurringExpense';
+  recurringIncomeSchema,
+  type RecurringIncomeFormData,
+  toRecurringIncomeFormData,
+  toRecurringIncomeData,
+} from '@/lib/validations/recurringIncome';
 import { getCategoriesByType } from '@/constants/categories';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useRecurringExpenseStore } from '@/store/useRecurringExpenseStore';
+import { useRecurringIncomeStore } from '@/store/useRecurringIncomeStore';
 
 /**
  * モーダルのプロパティ
  */
-interface RecurringExpenseModalProps {
+interface RecurringIncomeModalProps {
   /** モーダル開閉状態 */
   open: boolean;
   /** モーダルの開閉を制御するコールバック */
@@ -43,10 +43,10 @@ interface RecurringExpenseModalProps {
   householdId: string;
   /** 世帯メンバー一覧 */
   members: HouseholdMember[];
-  /** 編集対象の定期支出（編集モード） */
-  editingRecurringExpense?: RecurringExpense;
-  /** 定期支出作成成功時のコールバック */
-  onSuccess?: (recurringExpense: RecurringExpense) => Promise<void> | void;
+  /** 編集対象の定期収入（編集モード） */
+  editingRecurringIncome?: RecurringIncome;
+  /** 定期収入作成成功時のコールバック */
+  onSuccess?: (recurringIncome: RecurringIncome) => Promise<void> | void;
 }
 
 /**
@@ -57,7 +57,7 @@ function getMemberLabel(member: HouseholdMember): string {
 }
 
 /**
- * 支払日の選択肢を生成
+ * 受取日の選択肢を生成
  */
 function generateDayOptions(): Array<{ value: number; label: string }> {
   const options = [];
@@ -71,97 +71,94 @@ function generateDayOptions(): Array<{ value: number; label: string }> {
 }
 
 /**
- * 定期支出登録モーダル
+ * 定期収入登録モーダル
  */
-export function RecurringExpenseModal({
+export function RecurringIncomeModal({
   open,
   onOpenChange,
   householdId,
   members,
-  editingRecurringExpense,
+  editingRecurringIncome,
   onSuccess,
-}: RecurringExpenseModalProps) {
+}: RecurringIncomeModalProps) {
   const currentUser = useAuthStore((state) => state.user);
-  const addRecurringExpense = useRecurringExpenseStore((state) => state.addRecurringExpense);
-  const updateRecurringExpense = useRecurringExpenseStore((state) => state.updateRecurringExpense);
-  const isSubmitting = useRecurringExpenseStore((state) => state.isSubmitting);
+  const addRecurringIncome = useRecurringIncomeStore((state) => state.addRecurringIncome);
+  const updateRecurringIncome = useRecurringIncomeStore((state) => state.updateRecurringIncome);
+  const isSubmitting = useRecurringIncomeStore((state) => state.isSubmitting);
 
   // モーダルが開いている間、bodyスクロールを無効化
   useBodyScrollLock(open);
 
   // 編集モードかどうか
-  const isEditMode = !!editingRecurringExpense;
+  const isEditMode = !!editingRecurringIncome;
 
-  // デフォルトの支払者（現在のユーザー）
-  const defaultPayerUserId = currentUser?.id || members[0]?.userId || '';
+  // デフォルトの受取者（現在のユーザー）
+  const defaultRecipientUserId = currentUser?.id || members[0]?.userId || '';
 
-  // 支出カテゴリの選択肢
-  const expenseCategories = getCategoriesByType('expense');
+  // 収入カテゴリの選択肢
+  const incomeCategories = getCategoriesByType('income');
 
   const {
     control,
     handleSubmit,
     reset,
-    watch,
     formState: { errors },
-  } = useForm<RecurringExpenseFormData>({
-    resolver: zodResolver(recurringExpenseSchema) as Resolver<RecurringExpenseFormData>,
+  } = useForm<RecurringIncomeFormData>({
+    resolver: zodResolver(recurringIncomeSchema) as Resolver<RecurringIncomeFormData>,
     defaultValues: {
       householdId,
       amount: 0,
-      dayOfMonth: 1,
-      category: 'fixed',
+      dayOfMonth: 25,
+      category: 'salary',
       note: '',
-      payerUserId: defaultPayerUserId,
+      recipientUserId: defaultRecipientUserId,
       isActive: true,
-      expenseType: 'fixed',
     },
   });
-
-  // 種類の監視（説明文の動的表示用）
-  const expenseType = watch('expenseType');
 
   /**
    * 編集モードの場合、フォームに値を設定
    */
   useEffect(() => {
-    if (isEditMode && editingRecurringExpense) {
-      const formData = toRecurringExpenseFormData(editingRecurringExpense);
+    if (isEditMode && editingRecurringIncome) {
+      const formData = toRecurringIncomeFormData(editingRecurringIncome);
       reset(formData);
     } else {
       reset({
         householdId,
         amount: 0,
-        dayOfMonth: 1,
-        category: 'fixed',
+        dayOfMonth: 25,
+        category: 'salary',
         note: '',
-        payerUserId: defaultPayerUserId,
+        recipientUserId: defaultRecipientUserId,
         isActive: true,
-        expenseType: 'fixed',
       });
     }
-  }, [isEditMode, editingRecurringExpense, householdId, defaultPayerUserId, reset]);
+  }, [isEditMode, editingRecurringIncome, householdId, defaultRecipientUserId, reset]);
 
   /**
    * フォーム送信処理
    */
-  const onSubmit: SubmitHandler<RecurringExpenseFormData> = async (formData) => {
+  const onSubmit: SubmitHandler<RecurringIncomeFormData> = async (formData) => {
     try {
-      const recurringExpenseData = toRecurringExpenseData(formData);
+      const recurringIncomeData = toRecurringIncomeData(formData);
 
-      if (isEditMode && editingRecurringExpense) {
-        await updateRecurringExpense(editingRecurringExpense.id, recurringExpenseData);
-        toast.success('定期支出を更新しました');
+      // 作成/更新の結果を保持し、onSuccess には常に有効な定期収入を渡す
+      // （以前は新規作成時に undefined を渡していた）。
+      let savedRecurringIncome: RecurringIncome;
+      if (isEditMode && editingRecurringIncome) {
+        savedRecurringIncome = await updateRecurringIncome(editingRecurringIncome.id, recurringIncomeData);
+        toast.success('定期収入を更新しました');
       } else {
-        await addRecurringExpense(recurringExpenseData);
-        toast.success('定期支出を作成しました');
+        savedRecurringIncome = await addRecurringIncome(recurringIncomeData);
+        toast.success('定期収入を作成しました');
       }
 
       onOpenChange(false);
-      await onSuccess?.(editingRecurringExpense!);
+      await onSuccess?.(savedRecurringIncome);
     } catch (error) {
-      console.error('定期支出保存エラー:', error);
-      toast.error('定期支出の保存に失敗しました');
+      console.error('定期収入保存エラー:', error);
+      toast.error('定期収入の保存に失敗しました');
     }
   };
 
@@ -180,59 +177,19 @@ export function RecurringExpenseModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isEditMode ? '定期支出を編集' : '定期支出を追加'}
+            {isEditMode ? '定期収入を編集' : '定期収入を追加'}
           </DialogTitle>
           <DialogDescription>
             {isEditMode
-              ? '定期支出の内容を編集できます。'
-              : '毎月自動で登録される定期支出を設定します。'}
+              ? '定期収入の内容を編集できます。'
+              : '毎月の給料などの定期収入を設定します。受取日にリマインダーが表示されます。'}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* 種類（固定費/変動費） */}
-          <div className="space-y-2">
-            <Label>種類 *</Label>
-            <Controller
-              name="expenseType"
-              control={control}
-              render={({ field }) => (
-                <div className="space-y-2">
-                  <div className="flex space-x-4">
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        value="fixed"
-                        checked={field.value === 'fixed'}
-                        onChange={() => field.onChange('fixed')}
-                        className="h-4 w-4"
-                      />
-                      <span>固定費</span>
-                    </label>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        value="variable"
-                        checked={field.value === 'variable'}
-                        onChange={() => field.onChange('variable')}
-                        className="h-4 w-4"
-                      />
-                      <span>変動費</span>
-                    </label>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {expenseType === 'fixed'
-                      ? '指定日に自動で支出として登録されます（家賃など）'
-                      : '指定日にリマインダーが表示され、手動で入力します（水道代など）'}
-                  </p>
-                </div>
-              )}
-            />
-          </div>
-
           {/* 金額 */}
           <div className="space-y-2">
-            <Label htmlFor="amount">金額 {expenseType === 'fixed' ? '*' : '(目安)'}</Label>
+            <Label htmlFor="amount">金額（目安）*</Label>
             <Controller
               name="amount"
               control={control}
@@ -254,9 +211,9 @@ export function RecurringExpenseModal({
             )}
           </div>
 
-          {/* 支払日 */}
+          {/* 受取日 */}
           <div className="space-y-2">
-            <Label htmlFor="dayOfMonth">支払日 *</Label>
+            <Label htmlFor="dayOfMonth">受取日 *</Label>
             <Controller
               name="dayOfMonth"
               control={control}
@@ -278,6 +235,9 @@ export function RecurringExpenseModal({
             {errors.dayOfMonth && (
               <p className="text-sm text-red-600">{errors.dayOfMonth.message}</p>
             )}
+            <p className="text-xs text-gray-500">
+              この日以降、月次ビューにリマインダーが表示されます
+            </p>
           </div>
 
           {/* カテゴリ */}
@@ -292,7 +252,7 @@ export function RecurringExpenseModal({
                   id="category"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {expenseCategories.map((category) => (
+                  {incomeCategories.map((category) => (
                     <option key={category.key} value={category.key}>
                       {category.label}
                     </option>
@@ -305,16 +265,16 @@ export function RecurringExpenseModal({
             )}
           </div>
 
-          {/* 支払者 */}
+          {/* 受取者 */}
           <div className="space-y-2">
-            <Label htmlFor="payerUserId">支払者 *</Label>
+            <Label htmlFor="recipientUserId">受取者 *</Label>
             <Controller
-              name="payerUserId"
+              name="recipientUserId"
               control={control}
               render={({ field }) => (
                 <select
                   {...field}
-                  id="payerUserId"
+                  id="recipientUserId"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {members.map((member) => (
@@ -325,8 +285,8 @@ export function RecurringExpenseModal({
                 </select>
               )}
             />
-            {errors.payerUserId && (
-              <p className="text-sm text-red-600">{errors.payerUserId.message}</p>
+            {errors.recipientUserId && (
+              <p className="text-sm text-red-600">{errors.recipientUserId.message}</p>
             )}
           </div>
 
@@ -340,7 +300,7 @@ export function RecurringExpenseModal({
                 <Input
                   {...field}
                   id="note"
-                  placeholder="家賃、光熱費など"
+                  placeholder="給料、ボーナスなど"
                   maxLength={500}
                 />
               )}
@@ -367,10 +327,10 @@ export function RecurringExpenseModal({
                       onBlur={field.onBlur}
                       name={field.name}
                       ref={field.ref}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
                     <Label htmlFor="isActive" className="text-sm">
-                      有効（無効にすると自動生成が停止します）
+                      有効（無効にするとリマインダーが停止します）
                     </Label>
                   </div>
                 )}

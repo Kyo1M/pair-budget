@@ -221,6 +221,56 @@ export type Database = {
           },
         ]
       }
+      recurring_incomes: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string | null
+          created_by: string
+          day_of_month: number
+          household_id: string
+          id: string
+          is_active: boolean
+          note: string | null
+          recipient_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string | null
+          created_by: string
+          day_of_month: number
+          household_id: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          recipient_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string | null
+          created_by?: string
+          day_of_month?: number
+          household_id?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          recipient_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_incomes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settlements: {
         Row: {
           amount: number
@@ -334,6 +384,17 @@ export type Database = {
       generate_recurring_transactions: {
         Args: { target_household: string; target_month: string }
         Returns: number
+      }
+      get_income_reminders: {
+        Args: { target_household: string; target_date?: string }
+        Returns: {
+          id: string
+          amount: number
+          day_of_month: number
+          category: string
+          note: string | null
+          recipient_user_id: string
+        }[]
       }
       get_household_balances: {
         Args: { target_household: string }

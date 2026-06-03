@@ -76,8 +76,6 @@ export function CreateHouseholdModal({
       return;
     }
 
-    console.log('世帯作成開始:', { userId: user.id, householdName: data.name });
-
     try {
       setIsLoading(true);
       await createHousehold(data.name);

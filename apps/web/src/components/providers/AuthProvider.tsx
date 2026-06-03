@@ -43,8 +43,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('認証状態変更:', event, session?.user?.email);
-
       // セッション情報を更新
       useAuthStore.setState({
         session,
