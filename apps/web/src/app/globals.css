@@ -6,7 +6,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-rounded);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -37,6 +37,20 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-pb-primary: var(--pb-primary);
+  --color-pb-primary-soft: var(--pb-primary-soft);
+  --color-pb-income: var(--pb-income);
+  --color-pb-income-soft: var(--pb-income-soft);
+  --color-pb-expense: var(--pb-expense);
+  --color-pb-expense-soft: var(--pb-expense-soft);
+  --color-pb-coral: var(--pb-coral);
+  --color-pb-amber: var(--pb-amber);
+  --color-pb-danger: var(--pb-danger);
+  --color-pb-bg: var(--pb-bg);
+  --color-pb-surface: var(--pb-surface);
+  --color-pb-ink: var(--pb-ink);
+  --color-pb-muted: var(--pb-muted);
+  --color-pb-faint: var(--pb-faint);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -79,6 +93,62 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* === PairBudget brand tokens (DESIGN.md v1) === */
+  --pb-primary: #5b6cf0;
+  --pb-primary-hover: #4a57d6;
+  --pb-primary-active: #3c49b8;
+  --pb-primary-soft: #e7e9fe;
+  --pb-on-primary: #ffffff;
+
+  --pb-income: #23a082;
+  --pb-income-soft: #dcf3ec;
+  --pb-expense: #f2566b;
+  --pb-expense-soft: #ffe9ec;
+
+  --pb-coral: #ff7a8a;
+  --pb-amber: #ffc857;
+  --pb-amber-deep: #e8a93c;
+  --pb-amber-soft: #fff1d6;
+  --pb-danger: #e5484d;
+
+  --pb-bg: #fbfaff;
+  --pb-surface: #ffffff;
+  --pb-border: #ececf3;
+  --pb-ink: #2a2a40;
+  --pb-muted: #6e6e85;
+  --pb-faint: #9a9ab0;
+
+  --pb-shadow-sm: 0 2px 6px rgba(40, 40, 80, 0.06);
+  --pb-shadow-md: 0 6px 20px rgba(40, 40, 80, 0.06);
+  --pb-shadow-lg: 0 10px 34px rgba(40, 40, 80, 0.1);
+  --pb-shadow-primary: 0 6px 16px rgba(91, 108, 240, 0.3);
+
+  --pb-radius-sm: 10px;
+  --pb-radius-md: 13px;
+  --pb-radius-lg: 18px;
+  --pb-radius-xl: 24px;
+
+  /* === shadcn semantic vars → brand (override neutral defaults) === */
+  --radius: 0.8125rem; /* 13px = --pb-radius-md */
+  --background: var(--pb-bg);
+  --foreground: var(--pb-ink);
+  --card: var(--pb-surface);
+  --card-foreground: var(--pb-ink);
+  --popover: var(--pb-surface);
+  --popover-foreground: var(--pb-ink);
+  --primary: var(--pb-primary);
+  --primary-foreground: var(--pb-on-primary);
+  --secondary: var(--pb-primary-soft);
+  --secondary-foreground: var(--pb-primary-hover);
+  --muted: #f2f1fa;
+  --muted-foreground: var(--pb-muted);
+  --accent: var(--pb-primary-soft);
+  --accent-foreground: var(--pb-primary-hover);
+  --destructive: var(--pb-danger);
+  --border: var(--pb-border);
+  --input: var(--pb-border);
+  --ring: var(--pb-primary);
 }
 
 .dark {

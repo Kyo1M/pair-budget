@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { M_PLUS_Rounded_1c, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const rounded = M_PLUS_Rounded_1c({
+  variable: "--font-rounded",
+  weight: ["400", "500", "700", "800"],
+  subsets: ["latin"], // 日本語グリフは大きいため latin サブセット指定
+  display: "swap",
+  preload: false, // 巨大プリロードを避ける
+  fallback: ["Hiragino Maru Gothic ProN", "Hiragino Sans", "system-ui", "sans-serif"],
 });
 
 const geistMono = Geist_Mono({
@@ -27,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${rounded.variable} ${geistMono.variable} font-sans antialiased`}
       >
         <AuthProvider>
           {children}
