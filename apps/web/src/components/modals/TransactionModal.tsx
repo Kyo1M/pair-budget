@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AmountCalculatorPopover } from '@/components/transactions/AmountCalculatorPopover';
 import type { HouseholdMember } from '@/types/household';
 import type { Transaction, TransactionType } from '@/types/transaction';
 import {
@@ -269,15 +270,22 @@ export function TransactionModal({
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="amount">金額</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    min={1}
-                    step="1"
-                    placeholder="金額を入力"
-                    disabled={isSubmitting}
-                    {...register('amount', { valueAsNumber: true })}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="amount"
+                      type="number"
+                      min={1}
+                      step="1"
+                      placeholder="金額を入力"
+                      disabled={isSubmitting}
+                      className="flex-1"
+                      {...register('amount', { valueAsNumber: true })}
+                    />
+                    <AmountCalculatorPopover
+                      disabled={isSubmitting}
+                      onApply={(total) => setValue('amount', total, { shouldValidate: true })}
+                    />
+                  </div>
                   {errors.amount && (
                     <p className="text-sm text-red-500">{errors.amount.message}</p>
                   )}
