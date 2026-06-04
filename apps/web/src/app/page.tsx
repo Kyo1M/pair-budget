@@ -22,16 +22,10 @@ import { ShareJoinCodeModal } from '@/components/modals/ShareJoinCodeModal';
 import { TransactionModal } from '@/components/modals/TransactionModal';
 import { SettlementModal } from '@/components/modals/SettlementModal';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
-import { SummaryCards } from '@/components/dashboard/SummaryCards';
-import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
-import { BalanceCard } from '@/components/dashboard/BalanceCard';
-import { MonthlyCategoryBreakdown } from '@/components/dashboard/MonthlyCategoryBreakdown';
-import { YearlySummaryCards } from '@/components/dashboard/YearlySummaryCards';
-import { YearlyBalanceChart } from '@/components/dashboard/YearlyBalanceChart';
-import { RecurringExpenseList } from '@/components/dashboard/RecurringExpenseList';
-import { RecurringIncomeList } from '@/components/dashboard/RecurringIncomeList';
-import { VariableExpenseReminderBanner } from '@/components/dashboard/VariableExpenseReminderBanner';
-import { IncomeReminderBanner } from '@/components/dashboard/IncomeReminderBanner';
+import { MonthlyDashboardView } from '@/components/dashboard/MonthlyDashboardView';
+import { YearlyDashboardView } from '@/components/dashboard/YearlyDashboardView';
+import { RecurringDashboardView } from '@/components/dashboard/RecurringDashboardView';
+import { RecurringIncomeDashboardView } from '@/components/dashboard/RecurringIncomeDashboardView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomActionBar, type BottomAction } from '@/components/layout/BottomActionBar';
 import { Button } from '@/components/ui/button';
@@ -574,55 +568,38 @@ export default function Home() {
           </TabsList>
 
           <TabsContent value="monthly" className="space-y-6">
-            {/* 変動費リマインダーバナー */}
-            <VariableExpenseReminderBanner
-              reminders={variableReminders}
+            <MonthlyDashboardView
+              variableReminders={variableReminders}
+              incomeReminders={incomeReminders}
               members={members}
-              onRegister={handleRegisterFromReminder}
-              onDismiss={dismissReminder}
-            />
-
-            {/* 収入リマインダーバナー */}
-            <IncomeReminderBanner
-              reminders={incomeReminders}
-              members={members}
-              onRegister={handleRegisterFromIncomeReminder}
-              onDismiss={dismissIncomeReminder}
-            />
-
-            <SummaryCards summary={summary} isLoading={summaryLoading || transactionsLoading} />
-
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <MonthlyCategoryBreakdown
-                transactions={transactions}
-                isLoading={transactionsLoading}
-                onEdit={handleEditTransaction}
-                onDelete={handleDeleteTransaction}
-              />
-              <BalanceCard
-                balances={balances}
-                currentUserId={user?.id}
-                isLoading={balancesLoading}
-                highlights={balanceHighlights}
-                onSelectSettlementTarget={openSettlementModal}
-              />
-            </div>
-
-            <RecentTransactions 
-              transactions={transactions} 
-              isLoading={transactionsLoading}
-              onEdit={handleEditTransaction}
-              onDelete={handleDeleteTransaction}
+              onRegisterReminder={handleRegisterFromReminder}
+              onDismissReminder={dismissReminder}
+              onRegisterIncomeReminder={handleRegisterFromIncomeReminder}
+              onDismissIncomeReminder={dismissIncomeReminder}
+              summary={summary}
+              summaryLoading={summaryLoading}
+              transactions={transactions}
+              transactionsLoading={transactionsLoading}
+              balances={balances}
+              balanceHighlights={balanceHighlights}
+              balancesLoading={balancesLoading}
+              currentUserId={user?.id}
+              onSelectSettlementTarget={openSettlementModal}
+              onEditTransaction={handleEditTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
             />
           </TabsContent>
 
           <TabsContent value="yearly" className="space-y-6">
-            <YearlySummaryCards summary={yearlySummary} isLoading={yearlyLoading} />
-            <YearlyBalanceChart data={yearlyChartData} isLoading={yearlyLoading} />
+            <YearlyDashboardView
+              summary={yearlySummary}
+              chartData={yearlyChartData}
+              isLoading={yearlyLoading}
+            />
           </TabsContent>
 
           <TabsContent value="recurring" className="space-y-6">
-            <RecurringExpenseList
+            <RecurringDashboardView
               householdId={household.id}
               members={members}
               recurringExpenses={recurringExpenses}
@@ -631,7 +608,7 @@ export default function Home() {
           </TabsContent>
 
           <TabsContent value="recurring-income" className="space-y-6">
-            <RecurringIncomeList
+            <RecurringIncomeDashboardView
               householdId={household.id}
               members={members}
               recurringIncomes={recurringIncomes}
