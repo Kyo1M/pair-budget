@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller, type Resolver, type SubmitHandler, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -29,6 +29,7 @@ import {
   toTransactionData,
 } from '@/lib/validations/transaction';
 import { getCategoriesByType } from '@/constants/categories';
+import { getPlaceSuggestions } from '@/services/transactions';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
 
@@ -113,6 +114,7 @@ export function TransactionModal({
       occurredOn: getToday(),
       category: getDefaultCategoryForType(defaultType),
       note: '',
+      place: '',
       isHouseholdAdvance: false,
       payerUserId:
         defaultType === 'expense' || defaultType === 'advance'
@@ -126,6 +128,7 @@ export function TransactionModal({
   const payerUserId = watch('payerUserId');
   const category = watch('category');
   const isHouseholdAdvance = watch('isHouseholdAdvance');
+  const [placeSuggestions, setPlaceSuggestions] = useState<string[]>([]);
   const categoriesForType = useMemo(
     () => getCategoriesByType(transactionType),
     [transactionType]
@@ -144,6 +147,7 @@ export function TransactionModal({
           occurredOn: editingTransaction.occurredOn,
           category: editingTransaction.category ?? getDefaultCategoryForType(editingTransaction.type),
           note: editingTransaction.note ?? '',
+          place: editingTransaction.place ?? '',
           isHouseholdAdvance: false, // 立替フラグはフォームでのみ使用
           payerUserId: editingTransaction.payerUserId,
           advanceToUserId: editingTransaction.advanceToUserId,
@@ -156,6 +160,7 @@ export function TransactionModal({
           occurredOn: getToday(),
           category: getDefaultCategoryForType(defaultType),
           note: '',
+          place: '',
           isHouseholdAdvance: false,
           payerUserId:
             defaultType === 'expense' || defaultType === 'advance'
@@ -166,6 +171,17 @@ export function TransactionModal({
       }
     }
   }, [open, defaultType, reset, currentUser?.id, editingTransaction]);
+
+  /**
+   * モーダルオープン時に過去の場所をサジェスト用に読み込む
+   */
+  useEffect(() => {
+    if (open && householdId) {
+      getPlaceSuggestions(householdId)
+        .then(setPlaceSuggestions)
+        .catch(() => setPlaceSuggestions([]));
+    }
+  }, [open, householdId]);
 
   /**
    * 立替以外では advanceToUserId をクリア
@@ -362,6 +378,28 @@ export function TransactionModal({
                   <p className="text-sm text-red-500">{errors.note.message}</p>
                 )}
               </div>
+
+              {transactionType !== 'income' && (
+                <div className="space-y-2">
+                  <Label htmlFor="place">場所（任意）</Label>
+                  <Input
+                    id="place"
+                    type="text"
+                    list="place-suggestions"
+                    placeholder="例：スーパー、コンビニ"
+                    disabled={isSubmitting}
+                    {...register('place')}
+                  />
+                  <datalist id="place-suggestions">
+                    {placeSuggestions.map((p) => (
+                      <option key={p} value={p} />
+                    ))}
+                  </datalist>
+                  {errors.place && (
+                    <p className="text-sm text-red-500">{errors.place.message}</p>
+                  )}
+                </div>
+              )}
 
               {(transactionType === 'expense' || transactionType === 'advance') && (
                 <div className="space-y-2">

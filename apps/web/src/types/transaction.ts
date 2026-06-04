@@ -106,6 +106,8 @@ export interface TransactionData {
   payerUserId?: string | null;
   /** 立替先ユーザーID */
   advanceToUserId?: string | null;
+  /** 場所（任意・支出/立替のみ） */
+  place?: string | null;
 }
 
 /**
@@ -130,6 +132,7 @@ export interface Transaction {
   payerUserId: string | null;
   /** 立替先ユーザーID */
   advanceToUserId: string | null;
+  place: string | null;
   /** 作成者ユーザーID */
   createdBy: string;
   /** 作成日時 */

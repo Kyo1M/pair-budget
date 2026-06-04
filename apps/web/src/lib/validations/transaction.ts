@@ -101,6 +101,12 @@ export const transactionSchema = z
       .max(120, 'メモは120文字以内で入力してください')
       .optional()
       .nullable(),
+    /** 場所（任意） */
+    place: z
+      .string()
+      .max(50, '場所は50文字以内で入力してください')
+      .optional()
+      .nullable(),
     /** 家庭向け立替フラグ */
     isHouseholdAdvance: z.boolean().default(false),
     /** 支払者 */
@@ -200,5 +206,6 @@ export function toTransactionData(
     note: data.note?.trim() ? data.note.trim() : null,
     payerUserId: data.payerUserId ?? null,
     advanceToUserId: resolvedAdvanceToUserId,
+    place: resolvedType === 'income' ? null : (data.place?.trim() ? data.place.trim() : null),
   };
 }
