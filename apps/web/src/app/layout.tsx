@@ -7,7 +7,8 @@ import { Toaster } from "@/components/ui/sonner";
 const rounded = M_PLUS_Rounded_1c({
   variable: "--font-rounded",
   weight: ["400", "500", "700", "800"],
-  subsets: ["latin"], // 日本語グリフは大きいため latin サブセット指定
+  // subsets は指定しない: latin に絞ると unicode-range がラテン文字限定になり
+  // 日本語に丸ゴシックが適用されないため。preload:false なのでビルドエラーにならない。
   display: "swap",
   preload: false, // 巨大プリロードを避ける
   fallback: ["Hiragino Maru Gothic ProN", "Hiragino Sans", "system-ui", "sans-serif"],
