@@ -24,6 +24,7 @@ const TRANSACTION_SELECT = `
   occurred_on,
   category,
   note,
+  place,
   payer_user_id,
   advance_to_user_id,
   created_by,
@@ -48,6 +49,7 @@ function mapTransaction(row: TransactionRow): Transaction {
     occurredOn: row.occurred_on,
     category: normalizeCategory(row.category),
     note: row.note,
+    place: row.place,
     payerUserId: row.payer_user_id,
     advanceToUserId: row.advance_to_user_id,
     createdBy: row.created_by,
@@ -223,6 +225,7 @@ export async function createTransaction(input: TransactionData): Promise<Transac
     occurred_on: input.occurredOn,
     category: input.category,
     note: input.note?.trim() ? input.note.trim() : null,
+    place: input.place?.trim() ? input.place.trim() : null,
     payer_user_id: input.payerUserId ?? null,
     advance_to_user_id: input.type === 'advance' ? input.advanceToUserId ?? null : null,
     created_by: session.user.id,
@@ -314,6 +317,9 @@ export async function updateTransaction(
   if (input.note !== undefined) {
     payload.note = input.note?.trim() ? input.note.trim() : null;
   }
+  if (input.place !== undefined) {
+    payload.place = input.place?.trim() ? input.place.trim() : null;
+  }
   if (input.payerUserId !== undefined) {
     payload.payer_user_id = input.payerUserId ?? null;
   }
@@ -343,4 +349,27 @@ export async function updateTransaction(
   }
 
   return mapTransaction(data as TransactionRow);
+}
+
+/**
+ * 世帯内の過去の場所（place）をサジェスト用に取得する。
+ * @returns 重複なし・昇順の場所リスト。失敗時は空配列。
+ */
+export async function getPlaceSuggestions(householdId: string): Promise<string[]> {
+  const supabase = createClient();
+
+  // rpc は既存の insert/update と同様に型アサーションで通す（Functions 型未生成のため）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('get_place_suggestions', {
+    target_household: householdId,
+  });
+
+  if (error) {
+    console.error('場所サジェスト取得エラー:', error);
+    return [];
+  }
+
+  return ((data ?? []) as { place: string | null }[])
+    .map((row) => row.place)
+    .filter((place): place is string => Boolean(place));
 }

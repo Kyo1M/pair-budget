@@ -50,3 +50,6 @@ lerna-debug.log*
 # Turbo
 .turbo/
 
+# Brainstorming companion scratch (mockups, not committed)
+.superpowers/
+

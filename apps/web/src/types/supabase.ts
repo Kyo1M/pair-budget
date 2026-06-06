@@ -327,6 +327,7 @@ export type Database = {
           note: string | null
           occurred_on: string
           payer_user_id: string | null
+          place: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string | null
         }
@@ -341,6 +342,7 @@ export type Database = {
           note?: string | null
           occurred_on?: string
           payer_user_id?: string | null
+          place?: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string | null
         }
@@ -355,6 +357,7 @@ export type Database = {
           note?: string | null
           occurred_on?: string
           payer_user_id?: string | null
+          place?: string | null
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string | null
         }

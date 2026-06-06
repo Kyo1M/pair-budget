@@ -26,8 +26,9 @@ pnpm --filter web test
 pnpm --filter web test --coverage
 
 # Database migrations
-supabase db push --config supabase/config.toml --dry-run  # Preview changes
-supabase db push --config supabase/config.toml             # Apply migrations
+# Note: supabase CLI v2.6.8 does not support the --config flag; run from the repo root.
+supabase db push --dry-run  # Preview changes
+supabase db push            # Apply migrations
 ```
 
 ## Architecture
@@ -41,7 +42,7 @@ This is a pnpm workspace monorepo:
 
 ### Tech Stack
 
-- **Frontend**: Next.js 14 (App Router), TypeScript, shadcn/ui
+- **Frontend**: Next.js 15 (App Router), TypeScript, shadcn/ui
 - **Backend**: Supabase (PostgreSQL + Auth + RLS)
 - **State Management**: Zustand (planned)
 - **Validation**: Zod + react-hook-form (planned)
