@@ -137,6 +137,24 @@ Required keys (set in `apps/web/.env.local`):
 
 Commit `.env.example` with placeholder values for onboarding.
 
+## ローカル開発用テストログイン
+
+ローカルで実データ付きの画面を確認するための仕組み（本番では無効）。
+
+1. `apps/web/.env.local` に以下を設定:
+   - `SUPABASE_SERVICE_ROLE_KEY`（seed 用）
+   - `NEXT_PUBLIC_ENABLE_DEV_LOGIN=true`
+   - `NEXT_PUBLIC_DEV_LOGIN_TARO_EMAIL` / `_PASSWORD`, `NEXT_PUBLIC_DEV_LOGIN_HANAKO_EMAIL` / `_PASSWORD`
+2. テストデータを投入: `pnpm --filter web seed:test`（`-- --dry-run` で確認のみ）
+3. `pnpm --filter web dev` で起動し `/auth` を開く
+4. 「テスト太郎でログイン」/「テスト花子でログイン」で即ログイン
+
+**本番安全性**: dev-login は `NEXT_PUBLIC_ENABLE_DEV_LOGIN === 'true'` のときだけ描画される。
+Vercel など本番ではこの変数と資格情報変数を設定しないこと（未設定ならボタンは出ず、資格情報もバンドルされない）。
+
+**テストアカウントの削除**: 不要になったら Supabase ダッシュボードの Authentication からテストユーザー
+（`@example.com`）を削除し、`households` の「テスト世帯」（固定 UUID `00000000-0000-4000-8000-000000000001`）を削除する。
+
 ## MVP Categories (Fixed)
 
 食費, 外食費, 日用品, 医療費, 家具・家電, 子ども, その他
