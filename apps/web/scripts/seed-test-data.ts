@@ -10,9 +10,12 @@
  */
 
 import { config } from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 
-config({ path: '.env.local' });
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.resolve(scriptDir, '..', '.env.local') });
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -47,18 +50,15 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 /** メールから既存ユーザーを探し、無ければ作成して id を返す */
-async function ensureUser(account: {
-  email: string;
-  password: string;
-  name: string;
-}): Promise<string> {
-  const { data: list, error: listError } = await admin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  });
-  if (listError) throw listError;
-
-  const existing = list.users.find((u) => u.email === account.email);
+async function ensureUser(
+  account: {
+    email: string;
+    password: string;
+    name: string;
+  },
+  existingUsers: { id: string; email?: string }[]
+): Promise<string> {
+  const existing = existingUsers.find((u) => u.email === account.email);
   if (existing) {
     console.log(`  user 既存: ${account.email} (${existing.id})`);
     return existing.id;
@@ -79,7 +79,7 @@ async function ensureUser(account: {
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return d.toLocaleDateString('sv-SE'); // YYYY-MM-DD（ローカルTZ）
 }
 
 async function main() {
@@ -87,14 +87,28 @@ async function main() {
 
   // 1. ユーザー
   console.log('1. テストユーザー');
+  let taroId: string;
+  let hanakoId: string;
   if (DRY_RUN) {
     console.log(`  ${TARO.email} (owner), ${HANAKO.email} (member)`);
+    taroId = 'taro-id';
+    hanakoId = 'hanako-id';
+  } else {
+    const { data: list, error: listError } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    if (listError) throw listError;
+    taroId = await ensureUser(TARO, list.users);
+    hanakoId = await ensureUser(HANAKO, list.users);
   }
-  const taroId = DRY_RUN ? 'taro-id' : await ensureUser(TARO);
-  const hanakoId = DRY_RUN ? 'hanako-id' : await ensureUser(HANAKO);
 
   // 2. テスト世帯（固定 UUID で find-or-create）
   console.log('2. テスト世帯');
+  if (DRY_RUN) {
+    console.log('  世帯 find-or-create: テスト世帯 (固定UUID)');
+    console.log('3. メンバー upsert (2件)');
+  }
   if (!DRY_RUN) {
     const { data: hh } = await admin
       .from('households')
