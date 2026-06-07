@@ -152,17 +152,18 @@ async function main() {
   // 4. 取引・精算（テスト世帯ぶんを入れ替え）
   console.log('4. 取引・精算');
   const transactions = [
-    { type: 'expense', amount: 5200, category: 'groceries', occurred_on: daysAgo(2), note: 'スーパー', payer_user_id: taroId, created_by: taroId },
-    { type: 'expense', amount: 3800, category: 'dining', occurred_on: daysAgo(3), note: 'ランチ', payer_user_id: hanakoId, created_by: hanakoId },
-    { type: 'expense', amount: 1500, category: 'daily', occurred_on: daysAgo(5), note: '日用品', payer_user_id: taroId, created_by: taroId },
-    { type: 'expense', amount: 2200, category: 'medical', occurred_on: daysAgo(7), note: '薬', payer_user_id: hanakoId, created_by: hanakoId },
-    { type: 'expense', amount: 18000, category: 'home', occurred_on: daysAgo(10), note: '家電', payer_user_id: taroId, created_by: taroId },
-    { type: 'expense', amount: 4300, category: 'kids', occurred_on: daysAgo(12), note: '子ども用品', payer_user_id: hanakoId, created_by: hanakoId },
-    { type: 'expense', amount: 980, category: 'other', occurred_on: daysAgo(14), note: 'その他', payer_user_id: taroId, created_by: taroId },
+    { type: 'expense', amount: 5200, category: 'groceries', occurred_on: daysAgo(2), note: 'スーパー', place: 'スーパー田中', payer_user_id: taroId, created_by: taroId },
+    { type: 'expense', amount: 1800, category: 'groceries', occurred_on: daysAgo(9), note: 'スーパー', place: 'スーパー田中', payer_user_id: hanakoId, created_by: hanakoId },
+    { type: 'expense', amount: 3800, category: 'dining', occurred_on: daysAgo(3), note: 'ランチ', place: '居酒屋ふじ', payer_user_id: hanakoId, created_by: hanakoId },
+    { type: 'expense', amount: 1500, category: 'daily', occurred_on: daysAgo(5), note: '日用品', place: 'ドラッグてらだ', payer_user_id: taroId, created_by: taroId },
+    { type: 'expense', amount: 2200, category: 'medical', occurred_on: daysAgo(7), note: '薬', place: 'ドラッグてらだ', payer_user_id: hanakoId, created_by: hanakoId },
+    { type: 'expense', amount: 18000, category: 'home', occurred_on: daysAgo(10), note: '家電', place: 'ヨドバシ', payer_user_id: taroId, created_by: taroId },
+    { type: 'expense', amount: 4300, category: 'kids', occurred_on: daysAgo(12), note: '子ども用品', place: '西松屋', payer_user_id: hanakoId, created_by: hanakoId },
+    { type: 'expense', amount: 980, category: 'other', occurred_on: daysAgo(14), note: 'その他', place: null, payer_user_id: taroId, created_by: taroId },
     { type: 'income', amount: 280000, category: 'salary', occurred_on: daysAgo(1), note: '給料', payer_user_id: taroId, created_by: taroId },
     { type: 'income', amount: 60000, category: 'sideline', occurred_on: daysAgo(6), note: '副業', payer_user_id: hanakoId, created_by: hanakoId },
-    { type: 'advance', amount: 90000, category: 'home', occurred_on: daysAgo(8), note: '家賃立替', payer_user_id: taroId, advance_to_user_id: null, created_by: taroId },
-    { type: 'advance', amount: 7000, category: 'other', occurred_on: daysAgo(4), note: '花子の買い物立替', payer_user_id: taroId, advance_to_user_id: hanakoId, created_by: taroId },
+    { type: 'advance', amount: 90000, category: 'home', occurred_on: daysAgo(8), note: '家賃立替', place: '不動産すずき', payer_user_id: taroId, advance_to_user_id: null, created_by: taroId },
+    { type: 'advance', amount: 7000, category: 'other', occurred_on: daysAgo(4), note: '花子の買い物立替', place: 'コンビニ', payer_user_id: taroId, advance_to_user_id: hanakoId, created_by: taroId },
   ].map((t) => ({ household_id: TEST_HOUSEHOLD_ID, ...t }));
 
   const settlements = [
