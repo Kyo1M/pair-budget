@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { DevLoginButton } from '../DevLoginButton';
 
 const pushMock = vi.fn();
@@ -75,5 +76,8 @@ describe('DevLoginButton', () => {
     );
 
     expect(signInMock).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      'テストアカウントの資格情報が未設定です（.env.local を確認）'
+    );
   });
 });

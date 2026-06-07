@@ -63,6 +63,7 @@ export function DevLoginButton() {
       router.push('/');
       router.refresh();
     } catch (error) {
+      console.error('テストログインエラー:', error);
       toast.error(
         error instanceof Error ? error.message : 'テストログインに失敗しました'
       );
