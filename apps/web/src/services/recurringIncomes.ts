@@ -165,6 +165,28 @@ export async function getIncomeReminders(
   }));
 }
 
+/** 今月分の収入リマインダーを非表示にする。 */
+export async function dismissRecurringIncomeReminder(
+  recurringIncomeId: string,
+  targetDate = formatLocalDate()
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('認証が必要です');
+
+  const periodMonth = `${targetDate.slice(0, 7)}-01`;
+  const { error } = await supabase.from('recurring_reminder_dismissals').insert({
+    recurring_expense_id: null,
+    recurring_income_id: recurringIncomeId,
+    period_month: periodMonth,
+    dismissed_by: user.id,
+  });
+
+  if (error && error.code !== '23505') {
+    console.error('収入リマインダー非表示エラー:', error);
+    throw new Error('リマインダーを非表示にできませんでした');
+  }
+}
+
 /**
  * データベースの定期収入データをアプリケーションの型に変換
  *

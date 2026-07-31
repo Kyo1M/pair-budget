@@ -1,15 +1,14 @@
-/**
- * 取引登録モーダル
- */
+/** 取引登録・編集モーダル */
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useState } from 'react';
 import { Controller, type Resolver, type SubmitHandler, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { CheckCircle2 } from 'lucide-react';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -21,8 +20,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AmountCalculatorPopover } from '@/components/transactions/AmountCalculatorPopover';
+import { CurrencyInput } from '@/components/transactions/CurrencyInput';
+import { PlaceCombobox } from '@/components/transactions/PlaceCombobox';
 import type { HouseholdMember } from '@/types/household';
-import type { Transaction, TransactionType } from '@/types/transaction';
+import type {
+  PlaceSuggestion,
+  Transaction,
+  TransactionCategoryKey,
+  TransactionType,
+} from '@/types/transaction';
 import {
   transactionSchema,
   type TransactionFormData,
@@ -33,29 +39,44 @@ import { getPlaceSuggestions } from '@/services/transactions';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
 
-/**
- * モーダルのプロパティ
- */
-interface TransactionModalProps {
-  /** モーダル開閉状態 */
-  open: boolean;
-  /** モーダルの開閉を制御するコールバック */
-  onOpenChange: (open: boolean) => void;
-  /** 世帯ID */
-  householdId: string;
-  /** 世帯メンバー一覧 */
-  members: HouseholdMember[];
-  /** デフォルトの取引タイプ */
-  defaultType?: TransactionType;
-  /** 編集対象の取引（編集モード） */
-  editingTransaction?: Transaction;
-  /** 取引作成成功時のコールバック */
-  onSuccess?: (transaction: Transaction) => Promise<void> | void;
+export interface TransactionPreset {
+  type: TransactionType;
+  amount: number;
+  occurredOn: string;
+  category: TransactionCategoryKey;
+  note: string | null;
+  payerUserId: string | null;
+  advanceToUserId: string | null;
+  place: string | null;
 }
 
-/**
- * 今日の日付を YYYY-MM-DD 形式で取得
- */
+export type TransactionModalSource =
+  | { kind: 'create'; type: TransactionType }
+  | { kind: 'edit'; transaction: Transaction }
+  | {
+      kind: 'reminder';
+      reminderKind: 'expense' | 'income';
+      reminderId: string;
+      preset: TransactionPreset;
+    };
+
+export interface TransactionSuccessContext {
+  intent: 'close' | 'continue';
+  source: TransactionModalSource;
+}
+
+interface TransactionModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  householdId: string;
+  members: HouseholdMember[];
+  source: TransactionModalSource;
+  onSuccess?: (
+    transaction: Transaction,
+    context: TransactionSuccessContext
+  ) => Promise<void> | void;
+}
+
 function getToday(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
@@ -63,40 +84,57 @@ function getToday(): string {
   ).padStart(2, '0')}`;
 }
 
-/**
- * 会員名の表示
- */
 function getMemberLabel(member: HouseholdMember): string {
   return member.profile?.name || member.profile?.email || '名前未設定';
 }
 
-/**
- * 取引登録モーダル
- */
+function getTypeLabel(type: TransactionType): string {
+  if (type === 'income') return '収入';
+  if (type === 'advance') return '立替';
+  return '支出';
+}
+
 export function TransactionModal({
   open,
   onOpenChange,
   householdId,
   members,
-  defaultType = 'expense',
-  editingTransaction,
+  source,
   onSuccess,
 }: TransactionModalProps) {
   const currentUser = useAuthStore((state) => state.user);
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   const updateTransaction = useTransactionStore((state) => state.updateTransaction);
   const isSubmitting = useTransactionStore((state) => state.isSubmitting);
+  const formId = useId();
+  const [placeSuggestions, setPlaceSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
-  // モーダルが開いている間、bodyスクロールを無効化
   useBodyScrollLock(open);
 
-  // 編集モードかどうか（リマインダーの仮データは除外）
-  const isEditMode = Boolean(editingTransaction?.id);
+  const isEditMode = source.kind === 'edit';
+  const locksType = source.kind !== 'create';
+  const sourceType =
+    source.kind === 'create'
+      ? source.type
+      : source.kind === 'edit'
+        ? source.transaction.type
+        : source.preset.type;
 
-  const getDefaultCategoryForType = (type: TransactionType) => {
-    const categories = getCategoriesByType(type);
-    return categories[0]?.key ?? getCategoriesByType('expense')[0]?.key ?? 'other';
-  };
+  const getDefaultCategoryForType = (type: TransactionType): TransactionCategoryKey =>
+    getCategoriesByType(type)[0]?.key ?? 'other';
+
+  const emptyDefaults = (type: TransactionType): TransactionFormData => ({
+    type,
+    amount: '' as unknown as number,
+    occurredOn: getToday(),
+    category: getDefaultCategoryForType(type),
+    note: '',
+    place: '',
+    isHouseholdAdvance: false,
+    payerUserId: type === 'income' ? null : currentUser?.id ?? null,
+    advanceToUserId: null,
+  });
 
   const {
     control,
@@ -108,405 +146,231 @@ export function TransactionModal({
     formState: { errors },
   } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema) as Resolver<TransactionFormData>,
-    defaultValues: {
-      type: defaultType,
-      amount: '' as unknown as number, // 空白表示のため
-      occurredOn: getToday(),
-      category: getDefaultCategoryForType(defaultType),
-      note: '',
-      place: '',
-      isHouseholdAdvance: false,
-      payerUserId:
-        defaultType === 'expense' || defaultType === 'advance'
-          ? currentUser?.id ?? null
-          : null,
-      advanceToUserId: null,
-    },
+    defaultValues: emptyDefaults(sourceType),
   });
 
   const transactionType = watch('type');
   const payerUserId = watch('payerUserId');
   const category = watch('category');
   const isHouseholdAdvance = watch('isHouseholdAdvance');
-  const [placeSuggestions, setPlaceSuggestions] = useState<string[]>([]);
   const categoriesForType = useMemo(
     () => getCategoriesByType(transactionType),
     [transactionType]
   );
 
-  /**
-   * モーダルを開くたびに初期値をリセット
-   */
-  useEffect(() => {
-    if (open) {
-      if (editingTransaction) {
-        // 編集モード or リマインダーからのプリセット
-        reset({
-          type: editingTransaction.type,
-          amount: editingTransaction.amount,
-          occurredOn: editingTransaction.occurredOn,
-          category: editingTransaction.category ?? getDefaultCategoryForType(editingTransaction.type),
-          note: editingTransaction.note ?? '',
-          place: editingTransaction.place ?? '',
-          isHouseholdAdvance: false, // 立替フラグはフォームでのみ使用
-          payerUserId: editingTransaction.payerUserId,
-          advanceToUserId: editingTransaction.advanceToUserId,
-        });
-      } else {
-        // 新規作成モード
-        reset({
-          type: defaultType,
-          amount: '' as unknown as number, // 空白表示のため
-          occurredOn: getToday(),
-          category: getDefaultCategoryForType(defaultType),
-          note: '',
-          place: '',
-          isHouseholdAdvance: false,
-          payerUserId:
-            defaultType === 'expense' || defaultType === 'advance'
-              ? currentUser?.id ?? null
-              : null,
-          advanceToUserId: null,
-        });
-      }
-    }
-  }, [open, defaultType, reset, currentUser?.id, editingTransaction]);
+  // 開く前の描画フレームで初期化し、以前の入力値が一瞬見えるのを防ぐ。
+  useLayoutEffect(() => {
+    if (!open) return;
+    setSavedMessage(null);
 
-  /**
-   * モーダルオープン時に過去の場所をサジェスト用に読み込む
-   */
-  useEffect(() => {
-    if (open && householdId) {
-      getPlaceSuggestions(householdId)
-        .then(setPlaceSuggestions)
-        .catch(() => setPlaceSuggestions([]));
+    if (source.kind === 'create') {
+      reset(emptyDefaults(source.type));
+      return;
     }
+
+    const preset = source.kind === 'edit' ? source.transaction : source.preset;
+    reset({
+      type: preset.type,
+      amount: preset.amount,
+      occurredOn: preset.occurredOn,
+      category: preset.category ?? getDefaultCategoryForType(preset.type),
+      note: preset.note ?? '',
+      place: preset.place ?? '',
+      isHouseholdAdvance: false,
+      payerUserId: preset.payerUserId,
+      advanceToUserId: preset.advanceToUserId,
+    });
+    // source が変わるたびに必ず別のフォーム内容として扱う。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, reset, source]);
+
+  useEffect(() => {
+    if (!open || !householdId) return;
+    getPlaceSuggestions(householdId).then(setPlaceSuggestions).catch(() => setPlaceSuggestions([]));
   }, [open, householdId]);
 
-  /**
-   * 立替以外では advanceToUserId をクリア
-   */
   useEffect(() => {
-    if (transactionType !== 'advance') {
-      setValue('advanceToUserId', null);
-    }
+    if (transactionType !== 'advance') setValue('advanceToUserId', null);
     if (transactionType !== 'expense' && isHouseholdAdvance) {
       setValue('isHouseholdAdvance', false);
     }
-  }, [transactionType, isHouseholdAdvance, setValue]);
+  }, [isHouseholdAdvance, setValue, transactionType]);
 
-  /**
-   * 取引タイプに応じてカテゴリを補正
-   */
   useEffect(() => {
     if (!categoriesForType.some((item) => item.key === category) && categoriesForType[0]) {
       setValue('category', categoriesForType[0].key);
     }
   }, [categoriesForType, category, setValue]);
 
-  /**
-   * フォーム送信
-   */
-  const onSubmit: SubmitHandler<TransactionFormData> = async (data) => {
+  const save = (intent: 'close' | 'continue'): SubmitHandler<TransactionFormData> => async (data) => {
     try {
-      let transaction: Transaction;
-
-      if (isEditMode && editingTransaction) {
-        // 編集モード
-        transaction = await updateTransaction(editingTransaction.id, toTransactionData(data, householdId));
-        toast.success('取引を更新しました', {
-          description: `${getTypeLabel(transaction.type)}: ¥${transaction.amount.toLocaleString()}`,
-        });
-      } else {
-        // 新規作成モード
-        transaction = await addTransaction(toTransactionData(data, householdId));
-        toast.success('取引を登録しました', {
-          description: `${getTypeLabel(transaction.type)}: ¥${transaction.amount.toLocaleString()}`,
-        });
+      const transactionData = toTransactionData(data, householdId);
+      if (source.kind === 'reminder') {
+        transactionData.recurringExpenseId =
+          source.reminderKind === 'expense' ? source.reminderId : null;
+        transactionData.recurringIncomeId =
+          source.reminderKind === 'income' ? source.reminderId : null;
       }
 
-      if (onSuccess) {
-        await onSuccess(transaction);
+      const transaction =
+        source.kind === 'edit'
+          ? await updateTransaction(source.transaction.id, transactionData)
+          : await addTransaction(transactionData);
+
+      await onSuccess?.(transaction, { intent, source });
+
+      if (intent === 'continue' && source.kind === 'create') {
+        reset({
+          ...data,
+          amount: '' as unknown as number,
+          note: '',
+          place: '',
+        });
+        setSavedMessage(`${getTypeLabel(transaction.type)} ${transaction.amount.toLocaleString()}円を登録しました`);
+        window.requestAnimationFrame(() => {
+          document.getElementById(`${formId}-amount`)?.focus();
+        });
+        return;
       }
 
+      toast.success(source.kind === 'edit' ? '取引を更新しました' : '取引を登録しました', {
+        description: `${getTypeLabel(transaction.type)}: ¥${transaction.amount.toLocaleString()}`,
+      });
       onOpenChange(false);
     } catch (error) {
       console.error('取引処理エラー:', error);
-      const action = isEditMode ? '更新' : '登録';
-      toast.error(error instanceof Error ? error.message : `取引の${action}に失敗しました`);
+      // ストアの error をページ側で一度だけ表示する。
     }
   };
 
-  /**
-   * タブ変更時の処理
-   */
   const handleTabChange = (value: string) => {
-    const newType = value as TransactionType;
-    setValue('type', newType);
-
-    if ((newType === 'expense' || newType === 'advance') && !watch('payerUserId')) {
+    const nextType = value as TransactionType;
+    setValue('type', nextType);
+    if ((nextType === 'expense' || nextType === 'advance') && !watch('payerUserId')) {
       setValue('payerUserId', currentUser?.id ?? null);
     }
-
-    if (newType === 'income') {
+    if (nextType === 'income') {
       setValue('payerUserId', null);
       setValue('advanceToUserId', null);
     }
-
-    const nextCategories = getCategoriesByType(newType);
-    if (nextCategories[0]) {
-      setValue('category', nextCategories[0].key);
-    }
+    const nextCategory = getCategoriesByType(nextType)[0];
+    if (nextCategory) setValue('category', nextCategory.key);
+    setSavedMessage(null);
   };
+
+  const id = (field: string) => `${formId}-${field}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
+      <DialogContent className="bottom-0 left-0 top-auto max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 rounded-b-none rounded-t-2xl p-0 data-[state=open]:zoom-in-100 sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg">
+        <DialogHeader className="sticky top-0 z-10 border-b bg-white px-5 py-4 pr-12 text-left">
           <DialogTitle>{isEditMode ? '取引を編集' : '取引を登録'}</DialogTitle>
           <DialogDescription>
-            {isEditMode
-              ? '取引内容を編集して更新しましょう'
-              : '支出・収入・立替を記録して家計を把握しましょう'}
+            {isEditMode ? '取引内容を編集します' : '支出・収入・立替を記録します'}
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={transactionType} onValueChange={handleTabChange}>
-          <TabsList className="w-full">
-            <TabsTrigger value="expense" disabled={isEditMode}>支出</TabsTrigger>
-            <TabsTrigger value="income" disabled={isEditMode}>収入</TabsTrigger>
-            <TabsTrigger value="advance" disabled={isEditMode}>立替</TabsTrigger>
-          </TabsList>
+        <Tabs value={transactionType} onValueChange={handleTabChange} className="gap-0">
+          <div className="px-5 pt-4">
+            <TabsList className="min-h-11 w-full">
+              <TabsTrigger className="min-h-11 touch-manipulation" value="expense" disabled={locksType}>支出</TabsTrigger>
+              <TabsTrigger className="min-h-11 touch-manipulation" value="income" disabled={locksType}>収入</TabsTrigger>
+              <TabsTrigger className="min-h-11 touch-manipulation" value="advance" disabled={locksType}>立替</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="mt-4 space-y-5"
-          >
-            <TabsContent value={transactionType}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="amount">金額</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="amount"
-                      type="number"
-                      min={1}
-                      step="1"
-                      placeholder="金額を入力"
-                      disabled={isSubmitting}
-                      className="flex-1"
-                      {...register('amount', { valueAsNumber: true })}
-                    />
-                    <AmountCalculatorPopover
-                      disabled={isSubmitting}
-                      onApply={(total) => setValue('amount', total, { shouldValidate: true })}
-                    />
-                  </div>
-                  {errors.amount && (
-                    <p className="text-sm text-red-500">{errors.amount.message}</p>
-                  )}
-                </div>
+          <form className="space-y-5 px-5 pb-0 pt-4" onSubmit={(event) => event.preventDefault()}>
+            {savedMessage && (
+              <div role="status" className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                <CheckCircle2 className="h-4 w-4" />{savedMessage}
+              </div>
+            )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="occurredOn">日付</Label>
-                  <Input
-                    id="occurredOn"
-                    type="date"
-                    disabled={isSubmitting}
-                    {...register('occurredOn')}
-                  />
-                  {errors.occurredOn && (
-                    <p className="text-sm text-red-500">{errors.occurredOn.message}</p>
-                  )}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor={id('amount')}>金額</Label>
+                <div className="flex gap-2">
+                  <CurrencyInput id={id('amount')} placeholder="金額を入力" disabled={isSubmitting} className="flex-1" aria-invalid={!!errors.amount} {...register('amount')} />
+                  <AmountCalculatorPopover disabled={isSubmitting} onApply={(total) => setValue('amount', total, { shouldValidate: true })} />
                 </div>
+                {errors.amount && <p className="text-sm text-red-500">{errors.amount.message}</p>}
               </div>
 
               <div className="space-y-2">
-              <Label htmlFor="category">カテゴリ</Label>
-              <select
-                id="category"
-                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed"
-                disabled={isSubmitting}
-                {...register('category')}
-              >
-                {categoriesForType.map((item) => (
-                  <option key={item.key} value={item.key}>
-                    {item.label}
-                  </option>
-                ))}
+                <Label htmlFor={id('occurredOn')}>日付</Label>
+                <Input id={id('occurredOn')} type="date" className="min-h-11 text-base touch-manipulation" disabled={isSubmitting} {...register('occurredOn')} />
+                {errors.occurredOn && <p className="text-sm text-red-500">{errors.occurredOn.message}</p>}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={id('category')}>カテゴリ</Label>
+              <select id={id('category')} className="min-h-11 w-full touch-manipulation rounded-md border border-gray-200 bg-white px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" disabled={isSubmitting} {...register('category')}>
+                {categoriesForType.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
               </select>
-              {errors.category && (
-                <p className="text-sm text-red-500">{errors.category.message}</p>
-                )}
-              </div>
+              {errors.category && <p className="text-sm text-red-500">{errors.category.message}</p>}
+            </div>
 
-              {transactionType === 'expense' && (
-                <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  <label className="flex items-start gap-3">
-                    <Controller
-                      name="isHouseholdAdvance"
-                      control={control}
-                      render={({ field }) => (
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border border-amber-300 accent-amber-500"
-                          checked={field.value ?? false}
-                          onChange={(event) => field.onChange(event.target.checked)}
-                          disabled={isSubmitting}
-                        />
-                      )}
-                    />
-                    <span>
-                      家庭の支出を一旦立替えた場合はチェックしてください。<br />
-                      後で精算できるよう立替として計上します。
-                    </span>
-                  </label>
-                </div>
-              )}
+            {transactionType === 'expense' && (
+              <label className="flex min-h-11 touch-manipulation items-start gap-3 rounded-lg border border-dashed border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <Controller name="isHouseholdAdvance" control={control} render={({ field }) => (
+                  <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500" checked={field.value ?? false} onChange={(event) => field.onChange(event.target.checked)} disabled={isSubmitting} />
+                )} />
+                <span>家庭の支出を一旦立替えた場合はチェックしてください。後で世帯との精算に表示されます。</span>
+              </label>
+            )}
 
+            <div className="space-y-2">
+              <Label htmlFor={id('note')}>メモ</Label>
+              <textarea id={id('note')} rows={3} className="min-h-20 w-full touch-manipulation rounded-md border border-gray-200 px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="どんな取引かメモできます" disabled={isSubmitting} {...register('note')} />
+              {errors.note && <p className="text-sm text-red-500">{errors.note.message}</p>}
+            </div>
+
+            {transactionType !== 'income' && (
               <div className="space-y-2">
-                <Label htmlFor="note">メモ</Label>
-                <textarea
-                  id="note"
-                  rows={3}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed"
-                  placeholder="どんな取引かメモできます"
-                  disabled={isSubmitting}
-                  {...register('note')}
-                />
-                {errors.note && (
-                  <p className="text-sm text-red-500">{errors.note.message}</p>
-                )}
+                <Label htmlFor={id('place')}>場所（任意）</Label>
+                <Controller name="place" control={control} render={({ field }) => (
+                  <PlaceCombobox id={id('place')} value={field.value ?? ''} onChange={field.onChange} suggestions={placeSuggestions} disabled={isSubmitting} />
+                )} />
+                {errors.place && <p className="text-sm text-red-500">{errors.place.message}</p>}
               </div>
+            )}
 
-              {transactionType !== 'income' && (
-                <div className="space-y-2">
-                  <Label htmlFor="place">場所（任意）</Label>
-                  <Input
-                    id="place"
-                    type="text"
-                    list="place-suggestions"
-                    placeholder="例：スーパー、コンビニ"
-                    disabled={isSubmitting}
-                    {...register('place')}
-                  />
-                  <datalist id="place-suggestions">
-                    {placeSuggestions.map((p) => (
-                      <option key={p} value={p} />
-                    ))}
-                  </datalist>
-                  {errors.place && (
-                    <p className="text-sm text-red-500">{errors.place.message}</p>
-                  )}
-                </div>
+            {(transactionType === 'expense' || transactionType === 'advance') && (
+              <div className="space-y-2">
+                <Label htmlFor={id('payer')}>支払者</Label>
+                <Controller name="payerUserId" control={control} render={({ field }) => (
+                  <select id={id('payer')} className="min-h-11 w-full touch-manipulation rounded-md border border-gray-200 bg-white px-3 py-2 text-base" disabled={isSubmitting} value={field.value ?? ''} onChange={(event) => field.onChange(event.target.value || null)}>
+                    <option value="" disabled>支払者を選択</option>
+                    {members.map((member) => <option key={member.userId} value={member.userId}>{getMemberLabel(member)}{member.userId === currentUser?.id ? '（自分）' : ''}</option>)}
+                  </select>
+                )} />
+                {errors.payerUserId && <p className="text-sm text-red-500">{errors.payerUserId.message}</p>}
+              </div>
+            )}
+
+            {transactionType === 'advance' && (
+              <div className="space-y-2">
+                <Label htmlFor={id('advanceTo')}>立替先</Label>
+                <Controller name="advanceToUserId" control={control} render={({ field }) => (
+                  <select id={id('advanceTo')} className="min-h-11 w-full touch-manipulation rounded-md border border-gray-200 bg-white px-3 py-2 text-base" disabled={isSubmitting} value={field.value ?? '__household__'} onChange={(event) => field.onChange(event.target.value === '__household__' ? null : event.target.value)}>
+                    <option value="__household__">家庭全体に立替</option>
+                    {members.filter((member) => member.userId !== payerUserId).map((member) => <option key={member.userId} value={member.userId}>{getMemberLabel(member)}{member.userId === currentUser?.id ? '（自分）' : ''}</option>)}
+                  </select>
+                )} />
+              </div>
+            )}
+
+            <div className="sticky bottom-0 -mx-5 flex gap-2 border-t bg-white px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+              <Button type="button" variant="outline" className="min-h-11 flex-1 touch-manipulation" onClick={() => onOpenChange(false)} disabled={isSubmitting}>キャンセル</Button>
+              {source.kind === 'create' && (
+                <Button type="button" variant="outline" className="min-h-11 flex-1 touch-manipulation" disabled={isSubmitting} onClick={handleSubmit(save('continue'))}>{isSubmitting ? '保存中...' : '登録して続ける'}</Button>
               )}
-
-              {(transactionType === 'expense' || transactionType === 'advance') && (
-                <div className="space-y-2">
-                  <Label>支払者</Label>
-                  <Controller
-                    name="payerUserId"
-                    control={control}
-                    render={({ field }) => (
-                      <select
-                        className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed"
-                        disabled={isSubmitting}
-                        value={field.value ?? ''}
-                        onChange={(event) =>
-                          field.onChange(event.target.value ? event.target.value : null)
-                        }
-                      >
-                        <option value="" disabled>
-                          支払者を選択
-                        </option>
-                        {members.map((member) => (
-                          <option key={member.userId} value={member.userId}>
-                            {getMemberLabel(member)}
-                            {member.userId === currentUser?.id ? '（自分）' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  />
-                  {errors.payerUserId && (
-                    <p className="text-sm text-red-500">{errors.payerUserId.message}</p>
-                  )}
-                </div>
-              )}
-
-              {transactionType === 'advance' && (
-                <div className="space-y-2">
-                  <Label>立替先</Label>
-                  <Controller
-                    name="advanceToUserId"
-                    control={control}
-                    render={({ field }) => (
-                      <select
-                        className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed"
-                        disabled={isSubmitting}
-                        value={field.value ?? '__household__'}
-                        onChange={(event) =>
-                          field.onChange(
-                            event.target.value === '__household__'
-                              ? null
-                              : event.target.value
-                          )
-                        }
-                      >
-                        <option value="__household__">家庭全体に立替</option>
-                        {members
-                          .filter((member) => member.userId !== payerUserId)
-                          .map((member) => (
-                            <option key={member.userId} value={member.userId}>
-                              {getMemberLabel(member)}
-                              {member.userId === currentUser?.id ? '（自分）' : ''}
-                            </option>
-                          ))}
-                      </select>
-                    )}
-                  />
-                  {errors.advanceToUserId && (
-                    <p className="text-sm text-red-500">{errors.advanceToUserId.message}</p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    家庭全体を選ぶと household 全体への立替として計上します
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-                className="flex-1"
-              >
-                キャンセル
-              </Button>
-              <Button type="submit" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? '保存中...' : isEditMode ? '更新する' : '登録する'}
-              </Button>
+              <Button type="button" className="min-h-11 flex-1 touch-manipulation" disabled={isSubmitting} onClick={handleSubmit(save('close'))}>{isSubmitting ? '保存中...' : isEditMode ? '更新する' : '登録して閉じる'}</Button>
             </div>
           </form>
         </Tabs>
       </DialogContent>
     </Dialog>
   );
-}
-
-/**
- * 取引タイプの表示名
- */
-function getTypeLabel(type: TransactionType): string {
-  switch (type) {
-    case 'income':
-      return '収入';
-    case 'advance':
-      return '立替';
-    case 'expense':
-    default:
-      return '支出';
-  }
 }

@@ -108,6 +108,10 @@ export interface TransactionData {
   advanceToUserId?: string | null;
   /** 場所（任意・支出/立替のみ） */
   place?: string | null;
+  /** リマインダー・自動生成元の定期支出ID */
+  recurringExpenseId?: string | null;
+  /** リマインダー元の定期収入ID */
+  recurringIncomeId?: string | null;
 }
 
 /**
@@ -133,6 +137,8 @@ export interface Transaction {
   /** 立替先ユーザーID */
   advanceToUserId: string | null;
   place: string | null;
+  recurringExpenseId: string | null;
+  recurringIncomeId: string | null;
   /** 作成者ユーザーID */
   createdBy: string;
   /** 作成日時 */
@@ -292,4 +298,11 @@ export interface IncomeReminder {
   note: string | null;
   /** 受取者ユーザーID */
   recipientUserId: string;
+}
+
+/** 過去に入力した場所の候補 */
+export interface PlaceSuggestion {
+  place: string;
+  useCount: number;
+  lastUsedOn: string;
 }

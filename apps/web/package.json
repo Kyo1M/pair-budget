@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "seed:test": "tsx scripts/seed-test-data.ts"
   },
   "dependencies": {
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

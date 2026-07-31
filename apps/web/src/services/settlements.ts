@@ -6,10 +6,16 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
-import type { HouseholdBalance, Settlement, SettlementData } from '@/types/settlement';
+import type {
+  BalanceSettlementData,
+  HouseholdBalance,
+  HouseholdBalanceBreakdown,
+  Settlement,
+  SettlementData,
+} from '@/types/settlement';
 
-type BalanceRow =
-  Database['public']['Functions']['get_household_balances']['Returns'][number];
+type BalanceBreakdownRow =
+  Database['public']['Functions']['get_household_balance_breakdown']['Returns'][number];
 type SettlementRow = Database['public']['Tables']['settlements']['Row'];
 type SettlementInsert = Database['public']['Tables']['settlements']['Insert'];
 
@@ -53,33 +59,75 @@ export async function getHouseholdBalances(
 ): Promise<HouseholdBalance[]> {
   const supabase = createClient();
 
-  const rpcArgs = {
+  const { data, error } = await supabase.rpc('get_household_balance_breakdown', {
     target_household: householdId,
-  };
-
-  // RPC関数を呼び出し (@supabase/ssr型定義の問題により型アサーション使用)
-  // TODO: Supabase CLIで型定義を自動生成し、as anyを削除する (チケット: PB-66)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc(
-    'get_household_balances',
-    rpcArgs
-  );
+  });
 
   if (error) {
     console.error('立替残高取得エラー:', error);
     throw new Error('立替残高の取得に失敗しました');
   }
 
-  const rows: BalanceRow[] = data ?? [];
+  return groupBalanceBreakdowns((data ?? []) as BalanceBreakdownRow[]);
+}
 
-  return rows.map((item) => ({
-    userId: item.user_id,
-    userName: item.user_name,
-    balanceAmount:
-      typeof item.balance_amount === 'string'
-        ? Number(item.balance_amount)
-        : item.balance_amount,
-  }));
+/** RPCの明細行をメンバー単位にまとめる純粋変換。 */
+export function groupBalanceBreakdowns(rows: BalanceBreakdownRow[]): HouseholdBalance[] {
+  const byUser = new Map<string, HouseholdBalance>();
+
+  rows.forEach((item) => {
+    const detail: HouseholdBalanceBreakdown = {
+      subjectUserId: item.subject_user_id,
+      subjectUserName: item.subject_user_name,
+      counterpartyUserId: item.counterparty_user_id,
+      counterpartyUserName: item.counterparty_user_name,
+      balanceAmount: Number(item.balance_amount),
+      isOverSettled: item.is_over_settled,
+    };
+    const current = byUser.get(detail.subjectUserId) ?? {
+      userId: detail.subjectUserId,
+      userName: detail.subjectUserName,
+      balanceAmount: 0,
+      breakdowns: [],
+    };
+    current.balanceAmount += detail.balanceAmount;
+    current.breakdowns.push(detail);
+    byUser.set(detail.subjectUserId, current);
+  });
+
+  return Array.from(byUser.values());
+}
+
+/** 残高明細に対する精算を、DB側の残高検証付きで作成する。 */
+export async function createBalanceSettlement(
+  input: BalanceSettlementData
+): Promise<Settlement> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('create_balance_settlement', {
+    target_household: input.householdId,
+    target_subject_user: input.subjectUserId,
+    target_counterparty_user: input.counterpartyUserId,
+    target_amount: input.amount,
+    target_settled_on: input.settledOn,
+    target_note: input.note?.trim() ? input.note.trim() : null,
+  });
+
+  if (error) {
+    console.error('残高精算作成エラー:', error);
+    if (error.message.includes('exceeds the outstanding balance')) {
+      throw new Error('精算額が現在の立替残高を超えています');
+    }
+    if (error.message.includes('no outstanding balance')) {
+      throw new Error('精算できる立替残高がありません');
+    }
+    throw new Error('精算の記録に失敗しました');
+  }
+
+  const row = data?.[0];
+  if (!row) {
+    throw new Error('精算結果を取得できませんでした');
+  }
+  return mapSettlement(row);
 }
 
 /**
@@ -169,10 +217,18 @@ export async function createSettlement(input: SettlementData): Promise<Settlemen
 export async function deleteSettlement(id: string): Promise<void> {
   const supabase = createClient();
 
-  const { error } = await supabase.from('settlements').delete().eq('id', id);
+  const { data, error } = await supabase
+    .from('settlements')
+    .delete()
+    .eq('id', id)
+    .select('id');
 
   if (error) {
     console.error('精算削除エラー:', error);
     throw new Error('精算の削除に失敗しました');
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('精算を削除できませんでした（対象が見つからないか、権限がありません）');
   }
 }

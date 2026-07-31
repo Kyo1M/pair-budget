@@ -158,7 +158,7 @@ export function RecurringIncomeModal({
       await onSuccess?.(savedRecurringIncome);
     } catch (error) {
       console.error('定期収入保存エラー:', error);
-      toast.error('定期収入の保存に失敗しました');
+      // ストアの error をページ側で一度だけ通知する。
     }
   };
 

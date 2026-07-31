@@ -149,19 +149,20 @@ export function RecurringExpenseModal({
     try {
       const recurringExpenseData = toRecurringExpenseData(formData);
 
+      let savedRecurringExpense: RecurringExpense;
       if (isEditMode && editingRecurringExpense) {
-        await updateRecurringExpense(editingRecurringExpense.id, recurringExpenseData);
+        savedRecurringExpense = await updateRecurringExpense(editingRecurringExpense.id, recurringExpenseData);
         toast.success('定期支出を更新しました');
       } else {
-        await addRecurringExpense(recurringExpenseData);
+        savedRecurringExpense = await addRecurringExpense(recurringExpenseData);
         toast.success('定期支出を作成しました');
       }
 
       onOpenChange(false);
-      await onSuccess?.(editingRecurringExpense!);
+      await onSuccess?.(savedRecurringExpense);
     } catch (error) {
       console.error('定期支出保存エラー:', error);
-      toast.error('定期支出の保存に失敗しました');
+      // ストアの error をページ側で一度だけ通知する。
     }
   };
 

@@ -5,11 +5,17 @@
  */
 
 import { create } from 'zustand';
-import type { HouseholdBalance, Settlement, SettlementData } from '@/types/settlement';
+import type {
+  BalanceSettlementData,
+  HouseholdBalance,
+  Settlement,
+  SettlementData,
+} from '@/types/settlement';
 import {
   getHouseholdBalances,
   getSettlements,
   createSettlement,
+  createBalanceSettlement,
   deleteSettlement,
 } from '@/services/settlements';
 
@@ -39,6 +45,8 @@ interface SettlementStore {
   loadSettlements: (householdId: string) => Promise<void>;
   /** 精算を追加 */
   addSettlement: (data: SettlementData) => Promise<Settlement>;
+  /** 残高明細を安全に精算 */
+  settleBalance: (data: BalanceSettlementData) => Promise<Settlement>;
   /** 精算を削除 */
   removeSettlement: (id: string, householdId: string) => Promise<void>;
   /** エラーをクリア */
@@ -162,6 +170,27 @@ export const useSettlementStore = create<SettlementStore>((set) => {
         return settlement;
       } catch (error) {
         console.error('精算追加エラー:', error);
+        set({
+          error: error instanceof Error ? error.message : '精算の記録に失敗しました',
+          isSubmitting: false,
+        });
+        throw error;
+      }
+    },
+
+    settleBalance: async (data: BalanceSettlementData) => {
+      try {
+        set({ isSubmitting: true, error: null });
+        const settlement = await createBalanceSettlement(data);
+        set((state) => ({
+          settlements: [settlement, ...state.settlements],
+          isSubmitting: false,
+        }));
+
+        const balances = await getHouseholdBalances(data.householdId);
+        applyBalances(balances, true);
+        return settlement;
+      } catch (error) {
         set({
           error: error instanceof Error ? error.message : '精算の記録に失敗しました',
           isSubmitting: false,

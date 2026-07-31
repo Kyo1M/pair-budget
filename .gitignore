@@ -6,6 +6,8 @@ node_modules/
 # Testing
 coverage/
 *.lcov
+apps/web/test-results/
+apps/web/playwright-report/
 
 # Next.js
 .next/
@@ -52,4 +54,3 @@ lerna-debug.log*
 
 # Brainstorming companion scratch (mockups, not committed)
 .superpowers/
-
