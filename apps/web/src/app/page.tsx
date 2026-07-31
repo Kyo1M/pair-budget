@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import {
   CircleDollarSign,
@@ -19,17 +20,17 @@ import {
 } from 'lucide-react';
 import { HouseholdSetupCard } from '@/components/household/HouseholdSetupCard';
 import { ShareJoinCodeModal } from '@/components/modals/ShareJoinCodeModal';
-import { TransactionModal } from '@/components/modals/TransactionModal';
+import {
+  TransactionModal,
+  type TransactionModalSource,
+  type TransactionSuccessContext,
+} from '@/components/modals/TransactionModal';
 import { SettlementModal } from '@/components/modals/SettlementModal';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { MonthlyDashboardView } from '@/components/dashboard/MonthlyDashboardView';
-import { YearlyDashboardView } from '@/components/dashboard/YearlyDashboardView';
-import { RecurringDashboardView } from '@/components/dashboard/RecurringDashboardView';
-import { RecurringIncomeDashboardView } from '@/components/dashboard/RecurringIncomeDashboardView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomActionBar, type BottomAction } from '@/components/layout/BottomActionBar';
 import { Button } from '@/components/ui/button';
-import { HOUSEHOLD_SETTLEMENT_KEY } from '@/lib/validations/settlement';
 import { formatLocalDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useHouseholdStore } from '@/store/useHouseholdStore';
@@ -40,6 +41,18 @@ import { useYearlyDashboardStore } from '@/store/useYearlyDashboardStore';
 import { useRecurringExpenseStore } from '@/store/useRecurringExpenseStore';
 import { useRecurringIncomeStore } from '@/store/useRecurringIncomeStore';
 import type { Transaction, TransactionType, VariableExpenseReminder, IncomeReminder } from '@/types/transaction';
+
+const YearlyDashboardView = dynamic(() =>
+  import('@/components/dashboard/YearlyDashboardView').then((module) => module.YearlyDashboardView)
+);
+const RecurringDashboardView = dynamic(() =>
+  import('@/components/dashboard/RecurringDashboardView').then((module) => module.RecurringDashboardView)
+);
+const RecurringIncomeDashboardView = dynamic(() =>
+  import('@/components/dashboard/RecurringIncomeDashboardView').then(
+    (module) => module.RecurringIncomeDashboardView
+  )
+);
 
 /**
  * 月をオフセットして YYYY-MM を生成
@@ -103,6 +116,7 @@ export default function Home() {
   const generateFixedTransactions = useRecurringExpenseStore((state) => state.generateFixedTransactions);
   const loadVariableReminders = useRecurringExpenseStore((state) => state.loadVariableReminders);
   const dismissReminder = useRecurringExpenseStore((state) => state.dismissReminder);
+  const completeReminder = useRecurringExpenseStore((state) => state.completeReminder);
 
   const recurringIncomes = useRecurringIncomeStore((state) => state.recurringIncomes);
   const incomeReminders = useRecurringIncomeStore((state) => state.incomeReminders);
@@ -112,17 +126,20 @@ export default function Home() {
   const clearRecurringIncomeError = useRecurringIncomeStore((state) => state.clearError);
   const loadIncomeReminders = useRecurringIncomeStore((state) => state.loadIncomeReminders);
   const dismissIncomeReminder = useRecurringIncomeStore((state) => state.dismissIncomeReminder);
+  const completeIncomeReminder = useRecurringIncomeStore((state) => state.completeIncomeReminder);
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [transactionModalType, setTransactionModalType] = useState<TransactionType>('expense');
+  const [transactionModalSource, setTransactionModalSource] = useState<TransactionModalSource>({
+    kind: 'create',
+    type: 'expense',
+  });
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementTarget, setSettlementTarget] = useState<{
-    partnerId: string;
-    direction: 'pay' | 'receive';
+    subjectUserId: string;
+    counterpartyUserId: string | null;
   } | null>(null);
   const [activeView, setActiveView] = useState<'monthly' | 'yearly' | 'recurring' | 'recurring-income'>('monthly');
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>();
   const selectedMonthRef = useRef(selectedMonth);
 
   useEffect(() => {
@@ -288,14 +305,17 @@ export default function Home() {
    * 取引モーダル表示
    */
   const openTransactionModal = (type: TransactionType) => {
-    setTransactionModalType(type);
+    setTransactionModalSource({ kind: 'create', type });
     setIsTransactionModalOpen(true);
   };
 
   /**
    * 取引登録・更新成功時の処理
    */
-  const handleTransactionSuccess = async (transaction: Transaction) => {
+  const handleTransactionSuccess = async (
+    transaction: Transaction,
+    context: TransactionSuccessContext
+  ) => {
     if (!household) {
       return;
     }
@@ -309,28 +329,36 @@ export default function Home() {
     if (transaction.type === 'advance') {
       await loadBalances(household.id);
     }
+
+    if (context.source.kind === 'reminder') {
+      if (context.source.reminderKind === 'expense') {
+        completeReminder(context.source.reminderId);
+        await loadVariableReminders(household.id);
+      } else {
+        completeIncomeReminder(context.source.reminderId);
+        await loadIncomeReminders(household.id);
+      }
+    }
   };
 
   /**
    * リマインダーから支出登録
    */
   const handleRegisterFromReminder = (reminder: VariableExpenseReminder) => {
-    setTransactionModalType('expense');
-    // リマインダーの情報をセットして編集モードのように扱う（プリセット値として）
-    setEditingTransaction({
-      id: '',
-      householdId: household?.id || '',
-      type: 'expense',
-      amount: reminder.amount,
-      occurredOn: formatLocalDate(),
-      category: reminder.category,
-      note: reminder.note,
-      payerUserId: reminder.payerUserId,
-      advanceToUserId: null,
-      place: null,
-      createdBy: user?.id || '',
-      createdAt: '',
-      updatedAt: '',
+    setTransactionModalSource({
+      kind: 'reminder',
+      reminderKind: 'expense',
+      reminderId: reminder.id,
+      preset: {
+        type: 'expense',
+        amount: reminder.amount,
+        occurredOn: formatLocalDate(),
+        category: reminder.category,
+        note: reminder.note,
+        payerUserId: reminder.payerUserId,
+        advanceToUserId: null,
+        place: null,
+      },
     });
     setIsTransactionModalOpen(true);
   };
@@ -339,22 +367,20 @@ export default function Home() {
    * 収入リマインダーから収入登録
    */
   const handleRegisterFromIncomeReminder = (reminder: IncomeReminder) => {
-    setTransactionModalType('income');
-    // リマインダーの情報をセットしてプリセット値として使用
-    setEditingTransaction({
-      id: '',
-      householdId: household?.id || '',
-      type: 'income',
-      amount: reminder.amount,
-      occurredOn: formatLocalDate(),
-      category: reminder.category,
-      note: reminder.note,
-      payerUserId: reminder.recipientUserId,
-      advanceToUserId: null,
-      place: null,
-      createdBy: user?.id || '',
-      createdAt: '',
-      updatedAt: '',
+    setTransactionModalSource({
+      kind: 'reminder',
+      reminderKind: 'income',
+      reminderId: reminder.id,
+      preset: {
+        type: 'income',
+        amount: reminder.amount,
+        occurredOn: formatLocalDate(),
+        category: reminder.category,
+        note: reminder.note,
+        payerUserId: reminder.recipientUserId,
+        advanceToUserId: null,
+        place: null,
+      },
     });
     setIsTransactionModalOpen(true);
   };
@@ -363,7 +389,7 @@ export default function Home() {
    * 取引編集処理
    */
   const handleEditTransaction = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
+    setTransactionModalSource({ kind: 'edit', transaction });
     setIsTransactionModalOpen(true);
   };
 
@@ -396,12 +422,17 @@ export default function Home() {
         await loadBalances(household.id);
       }
 
+      await Promise.all([
+        loadVariableReminders(household.id),
+        loadIncomeReminders(household.id),
+      ]);
+
       if (activeView === 'yearly') {
         await loadYearlySummary(household.id, selectedYear);
       }
     } catch (error) {
       console.error('取引削除エラー:', error);
-      toast.error('取引の削除に失敗しました');
+      // 各ストアの error をページ側の共通通知で一度だけ表示する。
     }
   };
 
@@ -420,19 +451,11 @@ export default function Home() {
     }
   }
 
-  const currentUserBalance =
-    user?.id != null
-      ? balances.find((balance) => balance.userId === user.id)?.balanceAmount ?? 0
-      : 0;
-
-  const openSettlementModal = (target: {
-    partnerId: string;
-    suggestedDirection: 'pay' | 'receive';
+  const openSettlementModal = (target?: {
+    subjectUserId: string;
+    counterpartyUserId: string | null;
   }) => {
-    setSettlementTarget({
-      partnerId: target.partnerId,
-      direction: target.suggestedDirection,
-    });
+    setSettlementTarget(target ?? null);
     setIsSettlementModalOpen(true);
   };
 
@@ -493,11 +516,7 @@ export default function Home() {
     {
       label: '精算',
       icon: HandCoins,
-      onClick: () =>
-        openSettlementModal({
-          partnerId: HOUSEHOLD_SETTLEMENT_KEY,
-          suggestedDirection: currentUserBalance < 0 ? 'pay' : 'receive',
-        }),
+      onClick: () => openSettlementModal(),
     },
   ];
 
@@ -629,14 +648,10 @@ export default function Home() {
         open={isTransactionModalOpen}
         onOpenChange={(open) => {
           setIsTransactionModalOpen(open);
-          if (!open) {
-            setEditingTransaction(undefined);
-          }
         }}
         householdId={household.id}
         members={members}
-        defaultType={transactionModalType}
-        editingTransaction={editingTransaction}
+        source={transactionModalSource}
         onSuccess={handleTransactionSuccess}
       />
 
@@ -644,9 +659,8 @@ export default function Home() {
         open={isSettlementModalOpen}
         onOpenChange={handleSettlementModalOpenChange}
         householdId={household.id}
-        members={members}
-        initialPartnerId={settlementTarget?.partnerId}
-        initialDirection={settlementTarget?.direction}
+        initialSubjectUserId={settlementTarget?.subjectUserId}
+        initialCounterpartyUserId={settlementTarget?.counterpartyUserId}
       />
     </div>
   );

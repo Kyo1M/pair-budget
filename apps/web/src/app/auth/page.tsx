@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SignInForm } from '@/components/auth/SignInForm';
 import { SignUpForm } from '@/components/auth/SignUpForm';
+import { DevLoginButton } from '@/components/auth/DevLoginButton';
 
 /**
  * 認証ページコンポーネント
@@ -42,6 +43,7 @@ export default function AuthPage() {
               </CardHeader>
               <CardContent>
                 <SignInForm />
+                <DevLoginButton />
               </CardContent>
             </Card>
           </TabsContent>

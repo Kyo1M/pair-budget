@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRecurringIncomeStore } from '@/store/useRecurringIncomeStore';
 import type { IncomeReminder, RecurringIncome } from '@/types/transaction';
+import { dismissRecurringIncomeReminder } from '@/services/recurringIncomes';
 
 // Supabase に依存するサービス層をモックし、ストアのロジックのみを検証する。
 vi.mock('@/services/recurringIncomes', () => ({
@@ -9,6 +10,7 @@ vi.mock('@/services/recurringIncomes', () => ({
   updateRecurringIncome: vi.fn(),
   deleteRecurringIncome: vi.fn().mockResolvedValue(undefined),
   getIncomeReminders: vi.fn(),
+  dismissRecurringIncomeReminder: vi.fn().mockResolvedValue(undefined),
 }));
 
 function makeIncome(id: string): RecurringIncome {
@@ -57,5 +59,19 @@ describe('useRecurringIncomeStore.removeRecurringIncome', () => {
     // 削除済み収入のリマインダーがバナーに残らないこと（収入削除バグの原因B）
     expect(state.incomeReminders.map((reminder) => reminder.id)).toEqual(['inc-3']);
     expect(state.isSubmitting).toBe(false);
+  });
+});
+
+describe('useRecurringIncomeStore.dismissIncomeReminder', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useRecurringIncomeStore.getState().reset();
+  });
+
+  it('DBへの月次非表示保存後にバナーから除去する', async () => {
+    useRecurringIncomeStore.setState({ incomeReminders: [makeReminder('inc-1')] });
+    await useRecurringIncomeStore.getState().dismissIncomeReminder('inc-1');
+    expect(dismissRecurringIncomeReminder).toHaveBeenCalledWith('inc-1');
+    expect(useRecurringIncomeStore.getState().incomeReminders).toEqual([]);
   });
 });

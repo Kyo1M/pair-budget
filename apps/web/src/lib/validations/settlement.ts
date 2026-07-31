@@ -6,12 +6,6 @@ import { z } from 'zod';
 
 export const HOUSEHOLD_SETTLEMENT_KEY = '__household__';
 
-const settlementDirectionEnum = z.enum(['pay', 'receive']);
-const partnerSelectionSchema = z.union([
-  z.literal(HOUSEHOLD_SETTLEMENT_KEY),
-  z.string().uuid('相手を選択してください'),
-]);
-
 /**
  * YYYY-MM-DD 形式の妥当性確認
  */
@@ -42,10 +36,8 @@ function isValidDate(value: string): boolean {
  * 精算フォームのスキーマ
  */
 export const settlementSchema = z.object({
-  /** 精算方向 */
-  direction: settlementDirectionEnum,
-  /** 相手ユーザーID */
-  partnerUserId: partnerSelectionSchema,
+  /** 精算対象となる残高明細のキー */
+  targetKey: z.string().min(1, '精算する残高を選択してください'),
   /** 金額 */
   amount: z
     .preprocess((value) => {

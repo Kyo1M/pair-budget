@@ -12,6 +12,7 @@ import {
   updateRecurringIncome,
   deleteRecurringIncome,
   getIncomeReminders,
+  dismissRecurringIncomeReminder,
 } from '@/services/recurringIncomes';
 
 /**
@@ -45,7 +46,9 @@ interface RecurringIncomeActions {
   /** 収入リマインダーを読み込み */
   loadIncomeReminders: (householdId: string) => Promise<void>;
   /** リマインダーを一時的に非表示 */
-  dismissIncomeReminder: (id: string) => void;
+  dismissIncomeReminder: (id: string) => Promise<void>;
+  /** 登録完了したリマインダーを即時除去 */
+  completeIncomeReminder: (id: string) => void;
   /** エラーをクリア */
   clearError: () => void;
   /** ストアをリセット */
@@ -172,12 +175,21 @@ export const useRecurringIncomeStore = create<RecurringIncomeStore>((set, get) =
   /**
    * リマインダーを一時的に非表示
    */
-  dismissIncomeReminder: (id: string) => {
-    const { incomeReminders } = get();
-    set({
-      incomeReminders: incomeReminders.filter((r) => r.id !== id),
-    });
+  dismissIncomeReminder: async (id: string) => {
+    try {
+      await dismissRecurringIncomeReminder(id);
+      set((state) => ({
+        incomeReminders: state.incomeReminders.filter((r) => r.id !== id),
+      }));
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'リマインダーを非表示にできませんでした' });
+    }
   },
+
+  completeIncomeReminder: (id: string) =>
+    set((state) => ({
+      incomeReminders: state.incomeReminders.filter((r) => r.id !== id),
+    })),
 
   /**
    * エラーをクリア

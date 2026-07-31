@@ -14,6 +14,7 @@ import {
   generateMissingTransactions,
   generateFixedTransactionsByDate,
   getVariableExpenseReminders,
+  dismissVariableExpenseReminder,
 } from '@/services/recurringExpenses';
 
 /**
@@ -51,7 +52,9 @@ interface RecurringExpenseActions {
   /** 変動費リマインダーを読み込み */
   loadVariableReminders: (householdId: string) => Promise<void>;
   /** リマインダーを一時的に非表示 */
-  dismissReminder: (id: string) => void;
+  dismissReminder: (id: string) => Promise<void>;
+  /** 登録完了したリマインダーを即時除去 */
+  completeReminder: (id: string) => void;
   /** エラーをクリア */
   clearError: () => void;
   /** ストアをリセット */
@@ -148,9 +151,10 @@ export const useRecurringExpenseStore = create<RecurringExpenseStore>((set, get)
 
     try {
       await deleteRecurringExpense(id);
-      const { recurringExpenses } = get();
+      const { recurringExpenses, variableReminders } = get();
       set({
         recurringExpenses: recurringExpenses.filter((expense) => expense.id !== id),
+        variableReminders: variableReminders.filter((reminder) => reminder.id !== id),
         isSubmitting: false,
       });
     } catch (error) {
@@ -209,12 +213,21 @@ export const useRecurringExpenseStore = create<RecurringExpenseStore>((set, get)
   /**
    * リマインダーを一時的に非表示
    */
-  dismissReminder: (id: string) => {
-    const { variableReminders } = get();
-    set({
-      variableReminders: variableReminders.filter((r) => r.id !== id),
-    });
+  dismissReminder: async (id: string) => {
+    try {
+      await dismissVariableExpenseReminder(id);
+      set((state) => ({
+        variableReminders: state.variableReminders.filter((r) => r.id !== id),
+      }));
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'リマインダーを非表示にできませんでした' });
+    }
   },
+
+  completeReminder: (id: string) =>
+    set((state) => ({
+      variableReminders: state.variableReminders.filter((r) => r.id !== id),
+    })),
 
   /**
    * エラーをクリア

@@ -7,7 +7,7 @@ const base = {
   occurredOn: '2026-06-03',
   category: 'groceries',
   isHouseholdAdvance: false,
-  payerUserId: '00000000-0000-0000-0000-000000000001',
+  payerUserId: '11111111-1111-4111-8111-111111111111',
   advanceToUserId: null,
 };
 

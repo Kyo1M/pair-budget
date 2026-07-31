@@ -184,6 +184,7 @@ export type Database = {
           note: string | null
           payer_user_id: string
           updated_at: string | null
+          expense_type: string
         }
         Insert: {
           amount: number
@@ -197,6 +198,7 @@ export type Database = {
           note?: string | null
           payer_user_id: string
           updated_at?: string | null
+          expense_type?: string
         }
         Update: {
           amount?: number
@@ -210,6 +212,7 @@ export type Database = {
           note?: string | null
           payer_user_id?: string
           updated_at?: string | null
+          expense_type?: string
         }
         Relationships: [
           {
@@ -217,6 +220,48 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_reminder_dismissals: {
+        Row: {
+          created_at: string
+          dismissed_by: string
+          id: string
+          period_month: string
+          recurring_expense_id: string | null
+          recurring_income_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          dismissed_by: string
+          id?: string
+          period_month: string
+          recurring_expense_id?: string | null
+          recurring_income_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          dismissed_by?: string
+          id?: string
+          period_month?: string
+          recurring_expense_id?: string | null
+          recurring_income_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_reminder_dismissals_recurring_expense_id_fkey"
+            columns: ["recurring_expense_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_reminder_dismissals_recurring_income_id_fkey"
+            columns: ["recurring_income_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_incomes"
             referencedColumns: ["id"]
           },
         ]
@@ -328,6 +373,8 @@ export type Database = {
           occurred_on: string
           payer_user_id: string | null
           place: string | null
+          recurring_expense_id: string | null
+          recurring_income_id: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string | null
         }
@@ -343,6 +390,8 @@ export type Database = {
           occurred_on?: string
           payer_user_id?: string | null
           place?: string | null
+          recurring_expense_id?: string | null
+          recurring_income_id?: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string | null
         }
@@ -358,6 +407,8 @@ export type Database = {
           occurred_on?: string
           payer_user_id?: string | null
           place?: string | null
+          recurring_expense_id?: string | null
+          recurring_income_id?: string | null
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string | null
         }
@@ -405,6 +456,36 @@ export type Database = {
           balance_amount: number
           user_id: string
           user_name: string
+        }[]
+      }
+      get_household_balance_breakdown: {
+        Args: { target_household: string }
+        Returns: {
+          subject_user_id: string
+          subject_user_name: string | null
+          counterparty_user_id: string | null
+          counterparty_user_name: string | null
+          balance_amount: number
+          is_over_settled: boolean
+        }[]
+      }
+      create_balance_settlement: {
+        Args: {
+          target_household: string
+          target_subject_user: string
+          target_counterparty_user: string | null
+          target_amount: number
+          target_settled_on: string
+          target_note?: string | null
+        }
+        Returns: Database["public"]["Tables"]["settlements"]["Row"][]
+      }
+      get_ranked_place_suggestions: {
+        Args: { target_household: string }
+        Returns: {
+          place: string
+          use_count: number
+          last_used_on: string
         }[]
       }
       is_household_member: {

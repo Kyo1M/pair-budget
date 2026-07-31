@@ -1,8 +1,4 @@
-/**
- * 立替残高カード
- *
- * 各メンバーの残高と精算ショートカットを表示します。
- */
+/** 相手別の立替残高カード */
 
 'use client';
 
@@ -10,8 +6,7 @@ import { PiggyBank } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { HOUSEHOLD_SETTLEMENT_KEY } from '@/lib/validations/settlement';
-import type { HouseholdBalance } from '@/types/settlement';
+import type { HouseholdBalance, HouseholdBalanceBreakdown } from '@/types/settlement';
 
 const currencyFormatter = new Intl.NumberFormat('ja-JP', {
   style: 'currency',
@@ -19,25 +14,28 @@ const currencyFormatter = new Intl.NumberFormat('ja-JP', {
   maximumFractionDigits: 0,
 });
 
+export interface SettlementTarget {
+  subjectUserId: string;
+  counterpartyUserId: string | null;
+}
+
 interface BalanceCardProps {
   balances: HouseholdBalance[];
   currentUserId?: string;
   isLoading: boolean;
   highlights?: Record<string, boolean>;
-  onSelectSettlementTarget?: (params: {
-    partnerId: string;
-    suggestedDirection: 'pay' | 'receive';
-  }) => void;
+  onSelectSettlementTarget?: (target: SettlementTarget) => void;
 }
 
 function getBalanceClasses(amount: number): string {
-  if (amount > 0) {
-    return 'text-emerald-600';
-  }
-  if (amount < 0) {
-    return 'text-rose-600';
-  }
+  if (amount > 0) return 'text-emerald-600';
+  if (amount < 0) return 'text-rose-600';
   return 'text-gray-500';
+}
+
+function getMemberName(detail: HouseholdBalanceBreakdown, currentUserId?: string): string {
+  if (detail.subjectUserId === currentUserId) return `${detail.subjectUserName || 'あなた'}（あなた）`;
+  return detail.subjectUserName || '名前未設定';
 }
 
 export function BalanceCard({
@@ -47,43 +45,17 @@ export function BalanceCard({
   highlights,
   onSelectSettlementTarget,
 }: BalanceCardProps) {
-  const currentUserBalance =
-    currentUserId != null
-      ? balances.find((balance) => balance.userId === currentUserId)?.balanceAmount ?? 0
-      : 0;
+  const allDetails = balances.flatMap((balance) => balance.breakdowns);
+  const quickTarget =
+    allDetails.find(
+      (detail) => detail.subjectUserId === currentUserId && detail.counterpartyUserId === null
+    ) ?? allDetails.find((detail) => detail.counterpartyUserId === null) ?? allDetails[0];
 
-  const handleHouseholdSettlement = () => {
-    if (!onSelectSettlementTarget) {
-      return;
-    }
-    onSelectSettlementTarget({
-      partnerId: HOUSEHOLD_SETTLEMENT_KEY,
-      suggestedDirection: currentUserBalance < 0 ? 'pay' : 'receive',
+  const openSettlement = (detail: HouseholdBalanceBreakdown) => {
+    onSelectSettlementTarget?.({
+      subjectUserId: detail.subjectUserId,
+      counterpartyUserId: detail.counterpartyUserId,
     });
-  };
-
-  const suggestPartnerForCurrentUser = (direction: 'pay' | 'receive'): string | null => {
-    if (!currentUserId) {
-      return null;
-    }
-
-    const candidates = balances.filter(
-      (balance) => balance.userId && balance.userId !== currentUserId
-    );
-
-    if (direction === 'receive') {
-      return (
-        candidates
-          .filter((balance) => balance.balanceAmount < 0)
-          .sort((a, b) => a.balanceAmount - b.balanceAmount)[0]?.userId ?? null
-      );
-    }
-
-    return (
-      candidates
-        .filter((balance) => balance.balanceAmount > 0)
-        .sort((a, b) => b.balanceAmount - a.balanceAmount)[0]?.userId ?? null
-    );
   };
 
   return (
@@ -91,19 +63,12 @@ export function BalanceCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <div>
           <CardTitle>立替残高</CardTitle>
-          <p className="text-sm text-gray-500">
-            プラスは受け取る金額、マイナスは支払う金額です
-          </p>
+          <p className="text-sm text-gray-500">プラスは受け取る、マイナスは支払う金額です</p>
         </div>
         <div className="flex items-center gap-2">
-          {onSelectSettlementTarget && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleHouseholdSettlement}
-            >
-              世帯精算
+          {quickTarget && onSelectSettlementTarget && (
+            <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => openSettlement(quickTarget)}>
+              精算する
             </Button>
           )}
           <PiggyBank className="h-6 w-6 text-amber-500" />
@@ -113,103 +78,66 @@ export function BalanceCard({
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 2 }).map((_, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between rounded-lg border border-dashed p-3"
-              >
-                <div className="h-4 w-24 animate-pulse rounded bg-gray-200" />
-                <div className="h-4 w-16 animate-pulse rounded bg-gray-200" />
-              </div>
+              <div key={index} className="h-20 animate-pulse rounded-lg border bg-gray-100" />
             ))}
           </div>
         ) : balances.length === 0 ? (
-          <p className="text-sm text-gray-500">まだ立替のやり取りはありません</p>
+          <p className="text-sm text-gray-500">未精算の立替はありません</p>
         ) : (
-          <ul className="space-y-3">
-            {balances.map((balance) => {
-              const isCurrentUser = balance.userId === currentUserId;
-              const isHighlighted = !!highlights?.[balance.userId ?? ''];
-              const displayName =
-                balance.userName || (isCurrentUser ? 'あなた' : '名前未設定');
-              const amountClass = getBalanceClasses(balance.balanceAmount);
-
-              const canSelect = !!onSelectSettlementTarget && !!balance.userId;
-
-              const buttonClassName = cn(
-                'w-full rounded-lg border p-3 text-left ring-0 transition-colors duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-default disabled:opacity-95',
-                canSelect && 'cursor-pointer hover:border-blue-200 hover:bg-blue-50',
-                isCurrentUser && 'border-blue-200 bg-blue-50',
-                isHighlighted && 'border-amber-200 bg-amber-50 ring-2 ring-amber-200'
-              );
-
-              return (
-                <li key={balance.userId ?? displayName}>
-                  <button
-                    type="button"
-                    className={buttonClassName}
-                    disabled={!canSelect}
-                    onClick={() => {
-                      if (!onSelectSettlementTarget || !balance.userId) {
-                        return;
-                      }
-
-                      const direction =
-                        balance.balanceAmount > 0
-                          ? 'receive'
-                          : balance.balanceAmount < 0
-                            ? 'pay'
-                            : 'receive';
-
-                      const partnerId =
-                        isCurrentUser
-                          ? suggestPartnerForCurrentUser(direction) ?? HOUSEHOLD_SETTLEMENT_KEY
-                          : balance.userId;
-
-                      onSelectSettlementTarget({
-                        partnerId: partnerId,
-                        suggestedDirection: direction,
-                      });
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-semibold">
-                          {displayName}
-                          {isCurrentUser && (
-                            <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                              あなた
+          <ul className="space-y-4">
+            {balances.map((balance) => (
+              <li
+                key={balance.userId}
+                className={cn(
+                  'rounded-lg border p-3 transition-colors',
+                  balance.userId === currentUserId && 'border-blue-200 bg-blue-50',
+                  highlights?.[balance.userId] && 'border-amber-200 bg-amber-50 ring-2 ring-amber-200'
+                )}
+              >
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">
+                    {balance.breakdowns[0]
+                      ? getMemberName(balance.breakdowns[0], currentUserId)
+                      : balance.userName || '名前未設定'}
+                  </p>
+                  <strong className={getBalanceClasses(balance.balanceAmount)}>
+                    {currencyFormatter.format(balance.balanceAmount)}
+                  </strong>
+                </div>
+                <ul className="space-y-2">
+                  {balance.breakdowns.map((detail) => {
+                    const counterparty = detail.counterpartyUserId
+                      ? detail.counterpartyUserName || '名前未設定'
+                      : '世帯全体';
+                    return (
+                      <li key={`${detail.subjectUserId}:${detail.counterpartyUserId ?? 'household'}`}>
+                        <button
+                          type="button"
+                          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border bg-white px-3 py-2 text-left text-sm hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          onClick={() => openSettlement(detail)}
+                          disabled={!onSelectSettlementTarget}
+                        >
+                          <span>
+                            {counterparty}
+                            <span className="ml-1 text-xs text-gray-500">
+                              {detail.balanceAmount > 0 ? 'から受け取る' : 'へ支払う'}
                             </span>
-                          )}
-                        </p>
-                        {canSelect && (
-                          <p className="mt-1 text-xs text-blue-600">
-                            {isCurrentUser
-                              ? balance.balanceAmount > 0
-                                ? '受け取った相手との精算を記録'
-                                : balance.balanceAmount < 0
-                                  ? '支払った相手との精算を記録'
-                                  : '精算を記録'
-                              : balance.balanceAmount > 0
-                                ? 'この相手から精算を受け取る'
-                                : balance.balanceAmount < 0
-                                  ? 'この相手へ精算を支払う'
-                                  : '精算を記録'}
-                          </p>
-                        )}
-                      </div>
-                      <div
-                        className={cn(
-                          'text-sm font-semibold transition-all duration-500',
-                          amountClass
-                        )}
-                      >
-                        {currencyFormatter.format(balance.balanceAmount)}
-                      </div>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
+                            {detail.isOverSettled && (
+                              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+                                過剰精算の可能性
+                              </span>
+                            )}
+                          </span>
+                          <span className={cn('font-semibold', getBalanceClasses(detail.balanceAmount))}>
+                            {currencyFormatter.format(detail.balanceAmount)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            ))}
           </ul>
         )}
       </CardContent>

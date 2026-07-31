@@ -47,7 +47,7 @@ export function AmountCalculatorPopover({ onApply, disabled }: AmountCalculatorP
           type="button"
           aria-label="かんたん電卓を開く"
           disabled={disabled}
-          className="flex w-12 shrink-0 items-center justify-center rounded-[13px] bg-pb-primary-soft text-[var(--pb-primary-hover)] shadow-[inset_0_0_0_1.5px_var(--pb-border)] disabled:opacity-50"
+          className="flex min-h-11 w-12 shrink-0 touch-manipulation items-center justify-center rounded-[13px] bg-pb-primary-soft text-[var(--pb-primary-hover)] shadow-[inset_0_0_0_1.5px_var(--pb-border)] disabled:opacity-50"
         >
           <CalculatorIcon className="size-5" />
         </button>
@@ -63,7 +63,7 @@ export function AmountCalculatorPopover({ onApply, disabled }: AmountCalculatorP
               key={key}
               type="button"
               onClick={() => setState((s) => inputDigit(s, key))}
-              className="rounded-[10px] bg-pb-bg py-2 text-base font-bold"
+              className="min-h-11 touch-manipulation rounded-[10px] bg-pb-bg py-2 text-base font-bold"
             >
               {key}
             </button>
@@ -72,14 +72,14 @@ export function AmountCalculatorPopover({ onApply, disabled }: AmountCalculatorP
             type="button"
             aria-label="足す"
             onClick={() => setState((s) => pressPlus(s))}
-            className="rounded-[10px] bg-pb-primary-soft py-2 text-base font-bold text-[var(--pb-primary-hover)]"
+            className="min-h-11 touch-manipulation rounded-[10px] bg-pb-primary-soft py-2 text-base font-bold text-[var(--pb-primary-hover)]"
           >
             ＋
           </button>
           <button
             type="button"
             onClick={() => setState((s) => inputDigit(s, '0'))}
-            className="rounded-[10px] bg-pb-bg py-2 text-base font-bold"
+            className="min-h-11 touch-manipulation rounded-[10px] bg-pb-bg py-2 text-base font-bold"
           >
             0
           </button>
@@ -87,7 +87,7 @@ export function AmountCalculatorPopover({ onApply, disabled }: AmountCalculatorP
             type="button"
             aria-label="1文字削除"
             onClick={() => setState((s) => backspace(s))}
-            className="flex items-center justify-center rounded-[10px] bg-pb-expense-soft py-2 text-pb-expense"
+            className="flex min-h-11 touch-manipulation items-center justify-center rounded-[10px] bg-pb-expense-soft py-2 text-pb-expense"
           >
             <Delete className="size-4" />
           </button>

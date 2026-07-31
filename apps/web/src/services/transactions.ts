@@ -12,6 +12,7 @@ import {
   type Transaction,
   type TransactionCategoryKey,
   type TransactionData,
+  type PlaceSuggestion,
 } from '@/types/transaction';
 
 type TransactionRow = Database['public']['Tables']['transactions']['Row'];
@@ -27,6 +28,8 @@ const TRANSACTION_SELECT = `
   place,
   payer_user_id,
   advance_to_user_id,
+  recurring_expense_id,
+  recurring_income_id,
   created_by,
   created_at,
   updated_at
@@ -52,6 +55,8 @@ function mapTransaction(row: TransactionRow): Transaction {
     place: row.place,
     payerUserId: row.payer_user_id,
     advanceToUserId: row.advance_to_user_id,
+    recurringExpenseId: row.recurring_expense_id,
+    recurringIncomeId: row.recurring_income_id,
     createdBy: row.created_by,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
@@ -228,6 +233,8 @@ export async function createTransaction(input: TransactionData): Promise<Transac
     place: input.place?.trim() ? input.place.trim() : null,
     payer_user_id: input.payerUserId ?? null,
     advance_to_user_id: input.type === 'advance' ? input.advanceToUserId ?? null : null,
+    recurring_expense_id: input.recurringExpenseId ?? null,
+    recurring_income_id: input.recurringIncomeId ?? null,
     created_by: session.user.id,
   };
 
@@ -333,6 +340,12 @@ export async function updateTransaction(
   if (input.advanceToUserId !== undefined && input.type === 'advance') {
     payload.advance_to_user_id = input.advanceToUserId ?? null;
   }
+  if (input.recurringExpenseId !== undefined) {
+    payload.recurring_expense_id = input.recurringExpenseId ?? null;
+  }
+  if (input.recurringIncomeId !== undefined) {
+    payload.recurring_income_id = input.recurringIncomeId ?? null;
+  }
 
   // @supabase/ssr型定義の問題により型アサーション使用
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -355,12 +368,10 @@ export async function updateTransaction(
  * 世帯内の過去の場所（place）をサジェスト用に取得する。
  * @returns 重複なし・昇順の場所リスト。失敗時は空配列。
  */
-export async function getPlaceSuggestions(householdId: string): Promise<string[]> {
+export async function getPlaceSuggestions(householdId: string): Promise<PlaceSuggestion[]> {
   const supabase = createClient();
 
-  // rpc は既存の insert/update と同様に型アサーションで通す（Functions 型未生成のため）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc('get_place_suggestions', {
+  const { data, error } = await supabase.rpc('get_ranked_place_suggestions', {
     target_household: householdId,
   });
 
@@ -369,7 +380,9 @@ export async function getPlaceSuggestions(householdId: string): Promise<string[]
     return [];
   }
 
-  return ((data ?? []) as { place: string | null }[])
-    .map((row) => row.place)
-    .filter((place): place is string => Boolean(place));
+  return (data ?? []).map((row) => ({
+    place: row.place,
+    useCount: Number(row.use_count),
+    lastUsedOn: row.last_used_on,
+  }));
 }
