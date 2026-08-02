@@ -36,11 +36,14 @@ pair-budget/
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクト URL | `apps/web/.env.local` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key | `apps/web/.env.local` |
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバーサイド API 用 | Supabase CLI / Vercel env secrets |
+| `GEMINI_API_KEY` | レシート画像のOCR・項目抽出 | `apps/web/.env.local` / Vercel env secrets |
+| `GEMINI_MODEL` | OCRに使うGeminiモデル（既定: `gemini-3.6-flash`） | `apps/web/.env.local` / Vercel env secrets |
 | `NEXTAUTH_SECRET` (予定) | 認証用シークレット (必要な場合) | デプロイ環境 |
 | `JOIN_CODE_LENGTH` (任意) | 参加コード桁数を環境で制御したい場合 | `apps/web/.env` |
 
 - ローカルでは `apps/web/.env.local` にまとめ、`.env.example` をコミットして共有する。
 - Supabase Edge Function や Route Handler を利用する場合は、Resend 等の外部キーを追加する際も同様の運用とする。
+- `GEMINI_API_KEY` は Route Handler からのみ参照し、`NEXT_PUBLIC_` を付けない。Gemini無料枠では入力画像・出力がGoogleの製品改善に利用される場合があるため、利用条件を確認する。
 
 ## 4. Supabase スキーマ運用
 

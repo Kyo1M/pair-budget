@@ -9,6 +9,7 @@
 | `010_balance_breakdown_and_safe_settlement.sql` | 世帯向け・家族間の立替残高明細と、過剰精算を防ぐ精算 RPC を追加します。 |
 | `011_recurring_reminder_completion.sql` | 定期設定と取引の関連、月次リマインダー非表示を追加します。 |
 | `012_ranked_place_suggestions.sql` | 利用回数・最終利用日で並べた場所候補 RPC を追加します。 |
+| `013_create_receipt_scans.sql` | レシート画像のprivate bucket、OCR下書き、RLS、取引登録RPCを追加します。 |
 
 実行手順（Supabase SQL Editor）:
 1. ローカルで内容を確認し、必要に応じて編集。
@@ -18,6 +19,6 @@
 5. households 関連テーブルの権限を再付与するため `003_grant_household_permissions.sql` を実行。
 6. ローカルでは `supabase db remote commit` / `supabase db push --dry-run` などで差分確認。
 
-`010`〜`012` は既存データを削除せず、番号順に適用してください。Web アプリは3ファイルの適用後に展開します。
+`010`〜`013` は既存データを削除せず、番号順に適用してください。Web アプリは4ファイルの適用後に展開します。
 
 アーカイブ済みの旧スクリプトは `archive/` ディレクトリに保管しています。長期的に不要であれば削除してください。

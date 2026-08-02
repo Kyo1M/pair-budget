@@ -15,6 +15,7 @@
     "seed:test": "tsx scripts/seed-test-data.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.15.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

@@ -51,6 +51,7 @@ function savedTransaction(amount: number): Transaction {
     place: null,
     recurringExpenseId: null,
     recurringIncomeId: null,
+    receiptScanId: null,
     createdBy: member.userId,
     createdAt: '2026-07-28T00:00:00Z',
     updatedAt: '2026-07-28T00:00:00Z',

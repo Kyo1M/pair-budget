@@ -139,6 +139,8 @@ export interface Transaction {
   place: string | null;
   recurringExpenseId: string | null;
   recurringIncomeId: string | null;
+  /** 紐付いたレシート下書きID */
+  receiptScanId: string | null;
   /** 作成者ユーザーID */
   createdBy: string;
   /** 作成日時 */

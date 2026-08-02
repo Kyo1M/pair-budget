@@ -13,8 +13,8 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import {
+  Camera,
   CircleDollarSign,
-  HandCoins,
   Handshake,
   ShoppingCart,
 } from 'lucide-react';
@@ -25,6 +25,7 @@ import {
   type TransactionModalSource,
   type TransactionSuccessContext,
 } from '@/components/modals/TransactionModal';
+import { ReceiptCaptureModal } from '@/components/modals/ReceiptCaptureModal';
 import { SettlementModal } from '@/components/modals/SettlementModal';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { MonthlyDashboardView } from '@/components/dashboard/MonthlyDashboardView';
@@ -134,6 +135,7 @@ export default function Home() {
     kind: 'create',
     type: 'expense',
   });
+  const [isReceiptCaptureOpen, setIsReceiptCaptureOpen] = useState(false);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementTarget, setSettlementTarget] = useState<{
     subjectUserId: string;
@@ -314,7 +316,7 @@ export default function Home() {
    */
   const handleTransactionSuccess = async (
     transaction: Transaction,
-    context: TransactionSuccessContext
+    context?: TransactionSuccessContext
   ) => {
     if (!household) {
       return;
@@ -330,7 +332,7 @@ export default function Home() {
       await loadBalances(household.id);
     }
 
-    if (context.source.kind === 'reminder') {
+    if (context?.source.kind === 'reminder') {
       if (context.source.reminderKind === 'expense') {
         completeReminder(context.source.reminderId);
         await loadVariableReminders(household.id);
@@ -499,14 +501,14 @@ export default function Home() {
    */
   const bottomActions: BottomAction[] = [
     {
+      label: 'カメラ',
+      icon: Camera,
+      onClick: () => setIsReceiptCaptureOpen(true),
+    },
+    {
       label: '支出',
       icon: ShoppingCart,
       onClick: () => openTransactionModal('expense'),
-    },
-    {
-      label: '収入',
-      icon: CircleDollarSign,
-      onClick: () => openTransactionModal('income'),
     },
     {
       label: '立替',
@@ -514,9 +516,9 @@ export default function Home() {
       onClick: () => openTransactionModal('advance'),
     },
     {
-      label: '精算',
-      icon: HandCoins,
-      onClick: () => openSettlementModal(),
+      label: '収入',
+      icon: CircleDollarSign,
+      onClick: () => openTransactionModal('income'),
     },
   ];
 
@@ -643,6 +645,17 @@ export default function Home() {
         open={isShareModalOpen}
         onOpenChange={setIsShareModalOpen}
       />
+
+      {user?.id && (
+        <ReceiptCaptureModal
+          open={isReceiptCaptureOpen}
+          onOpenChange={setIsReceiptCaptureOpen}
+          householdId={household.id}
+          currentUserId={user.id}
+          members={members}
+          onSuccess={handleTransactionSuccess}
+        />
+      )}
 
       <TransactionModal
         open={isTransactionModalOpen}
