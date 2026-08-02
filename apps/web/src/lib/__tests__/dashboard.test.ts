@@ -21,6 +21,7 @@ function makeTx(overrides: Partial<Transaction> = {}): Transaction {
     payerUserId: null,
     advanceToUserId: null,
     place: null,
+    receiptScanId: null,
     createdBy: 'user-1',
     createdAt: '2026-05-15T00:00:00Z',
     updatedAt: '2026-05-15T00:00:00Z',

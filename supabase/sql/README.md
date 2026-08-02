@@ -6,6 +6,7 @@
 | `001_create_household_module.sql` | テーブル・関数・RLS ポリシーを一括作成します。`000` 実行後に流してください。 |
 | `002_update_household_owner_policy.sql` | owner_user_id の自動上書きと households INSERT ポリシー調整。`001` 適用済み環境向け。 |
 | `003_grant_household_permissions.sql` | households ドメインのテーブル権限を authenticated ロールへ付与します。 |
+| `010_create_receipt_scans.sql` | レシート画像のprivate bucket、OCR下書き、RLS、取引登録RPCを追加します。 |
 
 実行手順（Supabase SQL Editor）:
 1. ローカルで内容を確認し、必要に応じて編集。

@@ -133,6 +133,8 @@ export interface Transaction {
   /** 立替先ユーザーID */
   advanceToUserId: string | null;
   place: string | null;
+  /** 紐付いたレシート下書きID */
+  receiptScanId: string | null;
   /** 作成者ユーザーID */
   createdBy: string;
   /** 作成日時 */

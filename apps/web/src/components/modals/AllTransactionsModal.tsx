@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { Transaction } from '@/types/transaction';
 import { getTransactionCategory } from '@/constants/categories';
+import { ReceiptImageButton } from '@/components/receipts/ReceiptImageButton';
 
 /**
  * 日付フォーマッター (YYYY/M/D)
@@ -237,6 +238,9 @@ export function AllTransactionsModal({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {transaction.receiptScanId && (
+                        <ReceiptImageButton scanId={transaction.receiptScanId} compact />
+                      )}
                       <div className={`text-sm font-semibold ${amountClass}`}>
                         {amountSign}
                         {currencyFormatter.format(transaction.amount)}

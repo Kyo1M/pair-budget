@@ -40,7 +40,10 @@ const CATEGORY_KEY_SET = new Set<string>(TRANSACTION_CATEGORY_KEYS);
  * @param row - Supabase Row
  * @returns Transaction
  */
-function mapTransaction(row: TransactionRow): Transaction {
+export function mapTransaction(
+  row: TransactionRow,
+  receiptScanId: string | null = null
+): Transaction {
   return {
     id: row.id,
     householdId: row.household_id,
@@ -50,12 +53,32 @@ function mapTransaction(row: TransactionRow): Transaction {
     category: normalizeCategory(row.category),
     note: row.note,
     place: row.place,
+    receiptScanId,
     payerUserId: row.payer_user_id,
     advanceToUserId: row.advance_to_user_id,
     createdBy: row.created_by,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
+}
+
+async function mapTransactionsWithReceipts(
+  supabase: ReturnType<typeof createClient>,
+  rows: TransactionRow[]
+): Promise<Transaction[]> {
+  if (rows.length === 0) {
+    return [];
+  }
+  const ids = rows.map((row) => row.id);
+  const { data } = await supabase
+    .from('receipt_scans')
+    .select('id, transaction_id')
+    .in('transaction_id', ids)
+    .eq('status', 'registered');
+  const receiptByTransaction = new Map(
+    (data ?? []).map((row) => [row.transaction_id, row.id])
+  );
+  return rows.map((row) => mapTransaction(row, receiptByTransaction.get(row.id) ?? null));
 }
 
 /**
@@ -136,7 +159,7 @@ export async function getTransactions(
     throw new Error('取引の取得に失敗しました');
   }
 
-  return (data as TransactionRow[]).map(mapTransaction);
+  return mapTransactionsWithReceipts(supabase, data as TransactionRow[]);
 }
 
 /**
@@ -169,7 +192,7 @@ export async function getTransactionsByDateRange(
   }
 
   const rows = (data ?? []) as TransactionRow[];
-  return rows.map(mapTransaction);
+  return mapTransactionsWithReceipts(supabase, rows);
 }
 
 /**
@@ -198,7 +221,7 @@ export async function getRecentTransactions(
     throw new Error('最近の取引の取得に失敗しました');
   }
 
-  return (data as TransactionRow[]).map(mapTransaction);
+  return mapTransactionsWithReceipts(supabase, data as TransactionRow[]);
 }
 
 /**
@@ -264,6 +287,12 @@ export async function deleteTransaction(id: string): Promise<void> {
     throw new Error('認証されていません。ログインしてください。');
   }
 
+  const { data: receiptScan } = await supabase
+    .from('receipt_scans')
+    .select('id, storage_path')
+    .eq('transaction_id', id)
+    .maybeSingle();
+
   // .select() で削除された行を取得し、0行（RLS で弾かれた・存在しない）を検知する。
   // これがないと RLS により削除対象が0行でも error=null となり「成功」扱いになってしまう。
   const { data, error } = await supabase
@@ -279,6 +308,15 @@ export async function deleteTransaction(id: string): Promise<void> {
 
   if (!data || data.length === 0) {
     throw new Error('取引を削除できませんでした（対象が見つからないか、権限がありません）');
+  }
+
+  if (receiptScan) {
+    const { error: storageError } = await supabase.storage
+      .from('receipt-images')
+      .remove([receiptScan.storage_path]);
+    if (!storageError) {
+      await supabase.from('receipt_scans').delete().eq('id', receiptScan.id);
+    }
   }
 }
 
@@ -348,7 +386,8 @@ export async function updateTransaction(
     throw new Error('取引の更新に失敗しました');
   }
 
-  return mapTransaction(data as TransactionRow);
+  const [mapped] = await mapTransactionsWithReceipts(supabase, [data as TransactionRow]);
+  return mapped;
 }
 
 /**

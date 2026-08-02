@@ -271,6 +271,66 @@ export type Database = {
           },
         ]
       }
+      receipt_scans: {
+        Row: {
+          created_at: string
+          created_by: string
+          household_id: string
+          id: string
+          mime_type: string
+          ocr_error: string | null
+          ocr_result: Json | null
+          size_bytes: number
+          status: string
+          storage_path: string
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          household_id: string
+          id?: string
+          mime_type: string
+          ocr_error?: string | null
+          ocr_result?: Json | null
+          size_bytes: number
+          status?: string
+          storage_path: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          household_id?: string
+          id?: string
+          mime_type?: string
+          ocr_error?: string | null
+          ocr_result?: Json | null
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_scans_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_scans_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settlements: {
         Row: {
           amount: number
@@ -387,6 +447,20 @@ export type Database = {
       generate_recurring_transactions: {
         Args: { target_household: string; target_month: string }
         Returns: number
+      }
+      register_receipt_scan: {
+        Args: {
+          target_advance_to_user_id?: string | null
+          target_amount: number
+          target_category: string
+          target_note?: string | null
+          target_occurred_on: string
+          target_payer_user_id?: string | null
+          target_place?: string | null
+          target_scan_id: string
+          target_type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Returns: Database["public"]["Tables"]["transactions"]["Row"][]
       }
       get_income_reminders: {
         Args: { target_household: string; target_date?: string }

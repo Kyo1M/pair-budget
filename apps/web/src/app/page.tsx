@@ -12,14 +12,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
+  Camera,
   CircleDollarSign,
-  HandCoins,
   Handshake,
   ShoppingCart,
 } from 'lucide-react';
 import { HouseholdSetupCard } from '@/components/household/HouseholdSetupCard';
 import { ShareJoinCodeModal } from '@/components/modals/ShareJoinCodeModal';
 import { TransactionModal } from '@/components/modals/TransactionModal';
+import { ReceiptCaptureModal } from '@/components/modals/ReceiptCaptureModal';
 import { SettlementModal } from '@/components/modals/SettlementModal';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { MonthlyDashboardView } from '@/components/dashboard/MonthlyDashboardView';
@@ -29,7 +30,6 @@ import { RecurringIncomeDashboardView } from '@/components/dashboard/RecurringIn
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomActionBar, type BottomAction } from '@/components/layout/BottomActionBar';
 import { Button } from '@/components/ui/button';
-import { HOUSEHOLD_SETTLEMENT_KEY } from '@/lib/validations/settlement';
 import { formatLocalDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useHouseholdStore } from '@/store/useHouseholdStore';
@@ -115,6 +115,7 @@ export default function Home() {
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [isReceiptCaptureOpen, setIsReceiptCaptureOpen] = useState(false);
   const [transactionModalType, setTransactionModalType] = useState<TransactionType>('expense');
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementTarget, setSettlementTarget] = useState<{
@@ -328,6 +329,7 @@ export default function Home() {
       payerUserId: reminder.payerUserId,
       advanceToUserId: null,
       place: null,
+      receiptScanId: null,
       createdBy: user?.id || '',
       createdAt: '',
       updatedAt: '',
@@ -352,6 +354,7 @@ export default function Home() {
       payerUserId: reminder.recipientUserId,
       advanceToUserId: null,
       place: null,
+      receiptScanId: null,
       createdBy: user?.id || '',
       createdAt: '',
       updatedAt: '',
@@ -420,11 +423,6 @@ export default function Home() {
     }
   }
 
-  const currentUserBalance =
-    user?.id != null
-      ? balances.find((balance) => balance.userId === user.id)?.balanceAmount ?? 0
-      : 0;
-
   const openSettlementModal = (target: {
     partnerId: string;
     suggestedDirection: 'pay' | 'receive';
@@ -476,14 +474,14 @@ export default function Home() {
    */
   const bottomActions: BottomAction[] = [
     {
+      label: 'カメラ',
+      icon: Camera,
+      onClick: () => setIsReceiptCaptureOpen(true),
+    },
+    {
       label: '支出',
       icon: ShoppingCart,
       onClick: () => openTransactionModal('expense'),
-    },
-    {
-      label: '収入',
-      icon: CircleDollarSign,
-      onClick: () => openTransactionModal('income'),
     },
     {
       label: '立替',
@@ -491,13 +489,9 @@ export default function Home() {
       onClick: () => openTransactionModal('advance'),
     },
     {
-      label: '精算',
-      icon: HandCoins,
-      onClick: () =>
-        openSettlementModal({
-          partnerId: HOUSEHOLD_SETTLEMENT_KEY,
-          suggestedDirection: currentUserBalance < 0 ? 'pay' : 'receive',
-        }),
+      label: '収入',
+      icon: CircleDollarSign,
+      onClick: () => openTransactionModal('income'),
     },
   ];
 
@@ -624,6 +618,17 @@ export default function Home() {
         open={isShareModalOpen}
         onOpenChange={setIsShareModalOpen}
       />
+
+      {user?.id && (
+        <ReceiptCaptureModal
+          open={isReceiptCaptureOpen}
+          onOpenChange={setIsReceiptCaptureOpen}
+          householdId={household.id}
+          currentUserId={user.id}
+          members={members}
+          onSuccess={handleTransactionSuccess}
+        />
+      )}
 
       <TransactionModal
         open={isTransactionModalOpen}

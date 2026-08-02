@@ -74,6 +74,8 @@ interface TransactionStore {
   loadRecentTransactions: (householdId: string, limit?: number) => Promise<void>;
   /** 取引を追加 */
   addTransaction: (data: TransactionData) => Promise<Transaction>;
+  /** 別フローで作成済みの取引をストアへ反映 */
+  addExistingTransaction: (transaction: Transaction) => void;
   /** 取引を更新 */
   updateTransaction: (id: string, data: Partial<TransactionData>) => Promise<Transaction>;
   /** 取引を削除 */
@@ -174,6 +176,25 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
       });
       throw error;
     }
+  },
+
+  addExistingTransaction: (transaction) => {
+    set((state) => {
+      const monthKey = extractMonth(transaction.occurredOn);
+      const shouldIncludeInCurrent = state.currentMonth === monthKey;
+      return {
+        transactions: shouldIncludeInCurrent
+          ? sortTransactionsDesc([
+              ...state.transactions.filter((item) => item.id !== transaction.id),
+              transaction,
+            ])
+          : state.transactions,
+        recentTransactions: sortTransactionsDesc([
+          transaction,
+          ...state.recentTransactions.filter((item) => item.id !== transaction.id),
+        ]).slice(0, state.recentLimit),
+      };
+    });
   },
 
   /**
