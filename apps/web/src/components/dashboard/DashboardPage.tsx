@@ -183,7 +183,7 @@ export function DashboardPage() {
   }, [transactionError, editing]);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
+    <div className="min-h-screen bg-pb-bg pb-10 text-pb-ink">
       <header className="border-b bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <Button asChild variant="ghost" className="min-h-11">
@@ -192,22 +192,27 @@ export function DashboardPage() {
               概要に戻る
             </Link>
           </Button>
-          <p className="text-sm text-gray-600">
+          <p className="rounded-full bg-pb-bg px-3 py-1.5 text-xs font-medium text-pb-muted">
             {loadedUserId === user?.id ? household?.name : "ふたりの財布"}
           </p>
         </div>
       </header>
       <main
-        className="mx-auto max-w-5xl space-y-6 px-4 py-6"
+        className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:py-8"
         aria-busy={result?.loading}
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold">ダッシュボード</h1>
-          <div className="flex flex-wrap items-center gap-2">
+          <div>
+            <h1 className="text-2xl font-extrabold">ダッシュボード</h1>
+            <p className="mt-2 text-sm text-pb-muted">
+              ふたりの支出を、日々のペースから振り返る
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-0 rounded-2xl border bg-white p-1.5 shadow-[var(--pb-shadow-sm)] sm:gap-1">
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-11 w-11"
+              className="h-11 w-10"
               aria-label="前の月へ"
               disabled={!isValidMonth(shiftAnalyticsMonth(month, -1))}
               onClick={() => changeMonth(shiftAnalyticsMonth(month, -1))}
@@ -224,12 +229,12 @@ export function DashboardPage() {
               max="8999-12"
               value={month}
               onChange={(event) => changeMonth(event.target.value)}
-              className="min-h-11 min-w-0 max-w-48 rounded-md border bg-white px-2 text-base"
+              className="min-h-11 min-w-0 max-w-40 rounded-xl border-0 bg-pb-bg px-2 text-base font-bold text-pb-ink"
             />
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-11 w-11"
+              className="h-11 w-10"
               aria-label="次の月へ"
               disabled={!isValidMonth(shiftAnalyticsMonth(month, 1))}
               onClick={() => changeMonth(shiftAnalyticsMonth(month, 1))}
@@ -238,19 +243,22 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="min-h-11"
+              className="min-h-11 rounded-xl border-0 bg-pb-primary-soft text-pb-primary hover:bg-pb-primary-soft/70"
               onClick={() => changeMonth(today.slice(0, 7))}
             >
               今月
             </Button>
             <Button
               variant="ghost"
-              className="min-h-11"
+              className="min-h-11 w-10 rounded-xl px-0 text-pb-muted sm:w-auto sm:px-3"
+              aria-label="再読み込み"
               onClick={refresh}
               disabled={result?.loading}
             >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              再読み込み
+              <RefreshCw
+                className={`h-4 w-4 ${result?.loading ? "motion-safe:animate-spin" : ""}`}
+              />
+              <span className="hidden sm:inline">再読み込み</span>
             </Button>
           </div>
         </div>
