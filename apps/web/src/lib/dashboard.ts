@@ -4,14 +4,14 @@
  * 月次の支出カテゴリ内訳などを計算します。
  */
 
-import { getTransactionCategory } from '@/constants/categories';
+import { getTransactionCategory } from "@/constants/categories";
 import {
   EXPENSE_CATEGORY_KEYS,
   type ExpenseCategoryKey,
   type MonthlySummary,
   type Transaction,
   type TransactionCategory,
-} from '@/types/transaction';
+} from "@/types/transaction";
 
 /**
  * 取引が「家計の支出」に該当するか判定する。
@@ -26,10 +26,10 @@ import {
  * @returns 家計の支出に含めるべきなら true
  */
 export function isHouseholdExpense(transaction: Transaction): boolean {
-  if (transaction.type === 'expense') {
+  if (transaction.type === "expense") {
     return true;
   }
-  if (transaction.type === 'advance' && transaction.advanceToUserId == null) {
+  if (transaction.type === "advance" && transaction.advanceToUserId == null) {
     return true;
   }
   return false;
@@ -44,10 +44,12 @@ export function isHouseholdExpense(transaction: Transaction): boolean {
  * @param transactions - 対象取引一覧
  * @returns 収支サマリー
  */
-export function calculateTransactionSummary(transactions: Transaction[]): MonthlySummary {
+export function calculateTransactionSummary(
+  transactions: Transaction[],
+): MonthlySummary {
   const summary = transactions.reduce<MonthlySummary>(
     (acc, transaction) => {
-      if (transaction.type === 'income') {
+      if (transaction.type === "income") {
         acc.incomeTotal += transaction.amount;
       } else if (isHouseholdExpense(transaction)) {
         acc.expenseTotal += transaction.amount;
@@ -55,7 +57,7 @@ export function calculateTransactionSummary(transactions: Transaction[]): Monthl
       // 個人向け立替 (advanceToUserId != null) は家計の支出ではないため集計しない
       return acc;
     },
-    { incomeTotal: 0, expenseTotal: 0, balance: 0 }
+    { incomeTotal: 0, expenseTotal: 0, balance: 0 },
   );
 
   summary.balance = summary.incomeTotal - summary.expenseTotal;
@@ -65,9 +67,27 @@ export function calculateTransactionSummary(transactions: Transaction[]): Monthl
 /**
  * 支出カテゴリ内訳のエントリ
  */
+export type ExpenseBreakdownKey = ExpenseCategoryKey | "uncategorized";
+
+export function getExpenseBreakdownKey(
+  transaction: Transaction,
+): ExpenseBreakdownKey {
+  return transaction.category && isExpenseCategory(transaction.category)
+    ? transaction.category
+    : "uncategorized";
+}
+
+export function getExpenseBreakdownCategory(
+  key: ExpenseBreakdownKey,
+): TransactionCategory {
+  return key === "uncategorized"
+    ? { ...getTransactionCategory("other"), label: "未分類" }
+    : getTransactionCategory(key);
+}
+
 export interface ExpenseCategoryBreakdownItem {
   /** カテゴリキー */
-  key: ExpenseCategoryKey;
+  key: ExpenseBreakdownKey;
   /** カテゴリ情報 */
   category: TransactionCategory;
   /** 支出合計 */
@@ -97,37 +117,32 @@ interface ExpenseCategoryBreakdownOptions {
  */
 export function calculateExpenseCategoryBreakdown(
   transactions: Transaction[],
-  options: ExpenseCategoryBreakdownOptions = {}
+  options: ExpenseCategoryBreakdownOptions = {},
 ): {
   total: number;
   items: ExpenseCategoryBreakdownItem[];
 } {
   const { includeAdvance = false } = options;
 
-  const totals = transactions.reduce<Record<ExpenseCategoryKey, number>>((acc, transaction) => {
-    const isExpense = transaction.type === 'expense';
+  const totals = transactions.reduce<
+    Partial<Record<ExpenseBreakdownKey, number>>
+  >((acc, transaction) => {
+    const isExpense = transaction.type === "expense";
     const isHouseholdAdvance =
-      transaction.type === 'advance' && transaction.advanceToUserId == null;
+      transaction.type === "advance" && transaction.advanceToUserId == null;
     const isOtherAdvance =
-      transaction.type === 'advance' && transaction.advanceToUserId != null;
-    const shouldInclude = isExpense || isHouseholdAdvance || (includeAdvance && isOtherAdvance);
+      transaction.type === "advance" && transaction.advanceToUserId != null;
+    const shouldInclude =
+      isExpense || isHouseholdAdvance || (includeAdvance && isOtherAdvance);
 
     if (!shouldInclude) {
       return acc;
     }
 
-    if (transaction.category == null) {
-      return acc;
-    }
-
-    const category = getTransactionCategory(transaction.category);
-    if (!isExpenseCategory(category.key)) {
-      return acc;
-    }
-
-    acc[category.key] = (acc[category.key] ?? 0) + transaction.amount;
+    const key = getExpenseBreakdownKey(transaction);
+    acc[key] = (acc[key] ?? 0) + transaction.amount;
     return acc;
-  }, {} as Record<ExpenseCategoryKey, number>);
+  }, {});
 
   const total = Object.values(totals).reduce((sum, value) => sum + value, 0);
 
@@ -140,8 +155,8 @@ export function calculateExpenseCategoryBreakdown(
 
   const items = Object.entries(totals)
     .map(([key, amount]) => {
-      const expenseKey = key as ExpenseCategoryKey;
-      const category = getTransactionCategory(expenseKey);
+      const expenseKey = key as ExpenseBreakdownKey;
+      const category = getExpenseBreakdownCategory(expenseKey);
       return {
         key: expenseKey,
         category,

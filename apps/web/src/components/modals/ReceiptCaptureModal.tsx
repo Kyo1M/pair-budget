@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Controller, type Resolver, type SubmitHandler, useForm } from 'react-hook-form';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { type Resolver, type SubmitHandler, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertTriangle,
@@ -21,9 +21,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ReceiptPreview } from '@/components/receipts/ReceiptPreview';
+import {
+  TransactionFormFields,
+  TransactionTypeSelector,
+} from '@/components/transactions/TransactionFormFields';
 import { getCategoriesByType } from '@/constants/categories';
 import {
   transactionSchema,
@@ -32,9 +34,15 @@ import {
 } from '@/lib/validations/transaction';
 import { useReceiptScanStore } from '@/store/useReceiptScanStore';
 import { useTransactionStore } from '@/store/useTransactionStore';
+import { getPlaceSuggestions } from '@/services/transactions';
 import type { HouseholdMember } from '@/types/household';
 import type { ReceiptAmbiguousField, ReceiptScan } from '@/types/receipt';
-import type { ExpenseCategoryKey, Transaction } from '@/types/transaction';
+import type {
+  ExpenseCategoryKey,
+  PlaceSuggestion,
+  Transaction,
+  TransactionType,
+} from '@/types/transaction';
 
 interface ReceiptCaptureModalProps {
   open: boolean;
@@ -43,10 +51,6 @@ interface ReceiptCaptureModalProps {
   currentUserId: string;
   members: HouseholdMember[];
   onSuccess?: (transaction: Transaction) => Promise<void> | void;
-}
-
-function getMemberLabel(member: HouseholdMember): string {
-  return member.profile?.name || member.profile?.email || '名前未設定';
 }
 
 function getStatusLabel(scan: ReceiptScan): string {
@@ -80,6 +84,7 @@ export function ReceiptCaptureModal({
 }: ReceiptCaptureModalProps) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const formId = useId();
   const scans = useReceiptScanStore((state) => state.scans);
   const isLoading = useReceiptScanStore((state) => state.isLoading);
   const isUploading = useReceiptScanStore((state) => state.isUploading);
@@ -91,6 +96,7 @@ export function ReceiptCaptureModal({
   const removeScan = useReceiptScanStore((state) => state.removeScan);
   const addExistingTransaction = useTransactionStore((state) => state.addExistingTransaction);
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
+  const [placeSuggestions, setPlaceSuggestions] = useState<PlaceSuggestion[]>([]);
 
   const selectedScan = scans.find((scan) => scan.id === selectedScanId) ?? null;
   const reviewableScans = useMemo(
@@ -103,6 +109,7 @@ export function ReceiptCaptureModal({
     register,
     handleSubmit,
     reset,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<TransactionFormData>({
@@ -121,12 +128,25 @@ export function ReceiptCaptureModal({
   });
   const transactionType = watch('type');
   const payerUserId = watch('payerUserId');
+  const category = watch('category');
+  const isHouseholdAdvance = watch('isHouseholdAdvance');
+  const categoriesForType = useMemo(
+    () => getCategoriesByType(transactionType),
+    [transactionType]
+  );
 
   useEffect(() => {
     if (open) {
       void loadDrafts(householdId);
     }
   }, [open, householdId, loadDrafts]);
+
+  useEffect(() => {
+    if (!open || !householdId) return;
+    getPlaceSuggestions(householdId)
+      .then(setPlaceSuggestions)
+      .catch(() => setPlaceSuggestions([]));
+  }, [open, householdId]);
 
   useEffect(() => {
     if (selectedScanId && scans.some((scan) => scan.id === selectedScanId)) {
@@ -152,6 +172,37 @@ export function ReceiptCaptureModal({
       advanceToUserId: null,
     });
   }, [selectedScan, currentUserId, reset]);
+
+  useEffect(() => {
+    if (transactionType !== 'advance') setValue('advanceToUserId', null);
+    if (transactionType !== 'expense' && isHouseholdAdvance) {
+      setValue('isHouseholdAdvance', false);
+    }
+  }, [isHouseholdAdvance, setValue, transactionType]);
+
+  useEffect(() => {
+    if (!categoriesForType.some((item) => item.key === category) && categoriesForType[0]) {
+      setValue('category', categoriesForType[0].key);
+    }
+  }, [categoriesForType, category, setValue]);
+
+  const handleTypeChange = (nextType: TransactionType) => {
+    setValue('type', nextType);
+    if (!watch('payerUserId')) {
+      setValue('payerUserId', currentUserId);
+    }
+    if (nextType !== 'advance') {
+      setValue('advanceToUserId', null);
+    }
+    if (nextType !== 'expense') {
+      setValue('isHouseholdAdvance', false);
+    }
+    const nextCategories = getCategoriesByType(nextType);
+    const currentCategory = watch('category');
+    if (!nextCategories.some((item) => item.key === currentCategory) && nextCategories[0]) {
+      setValue('category', nextCategories[0].key);
+    }
+  };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -205,7 +256,6 @@ export function ReceiptCaptureModal({
   };
 
   const canReview = selectedScan?.status === 'ready' || selectedScan?.status === 'failed';
-  const categories = getCategoriesByType(transactionType === 'advance' ? 'advance' : 'expense');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -333,7 +383,7 @@ export function ReceiptCaptureModal({
                     <p className="mt-1 text-sm text-gray-500">待っている間に次の撮影ができます</p>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-8">
+                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 pb-0">
                     {selectedScan.status === 'failed' && (
                       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                         <p>{selectedScan.ocrError || 'OCR解析に失敗しました'}</p>
@@ -354,125 +404,43 @@ export function ReceiptCaptureModal({
                       </div>
                     ))}
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="receipt-type">種別</Label>
-                        <select
-                          id="receipt-type"
-                          className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
-                          disabled={isRegistering}
-                          {...register('type')}
-                        >
-                          <option value="expense">支出</option>
-                          <option value="advance">立替</option>
-                        </select>
-                      </div>
-                      <div
-                        className={`space-y-2 rounded-md ${
-                          fieldNeedsReview(selectedScan, 'amount') ? 'bg-amber-50 p-2' : ''
-                        }`}
-                      >
-                        <Label htmlFor="receipt-amount">金額</Label>
-                        <Input
-                          id="receipt-amount"
-                          type="number"
-                          min={1}
-                          disabled={isRegistering}
-                          {...register('amount', { valueAsNumber: true })}
-                        />
-                        {errors.amount && <p className="text-sm text-red-500">{errors.amount.message}</p>}
-                      </div>
-                    </div>
+                    <TransactionTypeSelector
+                      value={transactionType}
+                      onValueChange={handleTypeChange}
+                      allowedTypes={['expense', 'advance']}
+                      disabled={isRegistering}
+                    />
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className={`space-y-2 rounded-md ${fieldNeedsReview(selectedScan, 'occurredOn') ? 'bg-amber-50 p-2' : ''}`}>
-                        <Label htmlFor="receipt-date">日付</Label>
-                        <Input id="receipt-date" type="date" disabled={isRegistering} {...register('occurredOn')} />
-                        {errors.occurredOn && <p className="text-sm text-red-500">{errors.occurredOn.message}</p>}
-                      </div>
-                      <div className={`space-y-2 rounded-md ${fieldNeedsReview(selectedScan, 'category') ? 'bg-amber-50 p-2' : ''}`}>
-                        <Label htmlFor="receipt-category">カテゴリ</Label>
-                        <select
-                          id="receipt-category"
-                          className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
-                          disabled={isRegistering}
-                          {...register('category')}
-                        >
-                          {categories.map((category) => (
-                            <option key={category.key} value={category.key}>{category.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    <TransactionFormFields
+                      fieldIdPrefix={`${formId}-receipt`}
+                      control={control}
+                      register={register}
+                      setValue={setValue}
+                      errors={errors}
+                      transactionType={transactionType}
+                      payerUserId={payerUserId}
+                      members={members}
+                      currentUserId={currentUserId}
+                      placeSuggestions={placeSuggestions}
+                      disabled={isRegistering}
+                      needsReview={(field) => fieldNeedsReview(selectedScan, field)}
+                    />
 
-                    <div className={`space-y-2 rounded-md ${fieldNeedsReview(selectedScan, 'place') ? 'bg-amber-50 p-2' : ''}`}>
-                      <Label htmlFor="receipt-place">場所</Label>
-                      <Input id="receipt-place" disabled={isRegistering} {...register('place')} />
-                      {errors.place && <p className="text-sm text-red-500">{errors.place.message}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="receipt-payer">支払者</Label>
-                      <select
-                        id="receipt-payer"
-                        className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
-                        disabled={isRegistering}
-                        {...register('payerUserId')}
-                      >
-                        {members.map((member) => (
-                          <option key={member.userId} value={member.userId}>
-                            {getMemberLabel(member)}{member.userId === currentUserId ? '（自分）' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {transactionType === 'advance' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="receipt-advance-to">立替先</Label>
-                        <Controller
-                          name="advanceToUserId"
-                          control={control}
-                          render={({ field }) => (
-                            <select
-                              id="receipt-advance-to"
-                              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
-                              disabled={isRegistering}
-                              value={field.value ?? ''}
-                              onChange={(event) => field.onChange(event.target.value || null)}
-                            >
-                              <option value="">家庭全体に立替</option>
-                              {members.filter((member) => member.userId !== payerUserId).map((member) => (
-                                <option key={member.userId} value={member.userId}>{getMemberLabel(member)}</option>
-                              ))}
-                            </select>
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <Label htmlFor="receipt-note">メモ</Label>
-                      <textarea
-                        id="receipt-note"
-                        rows={2}
-                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                        disabled={isRegistering}
-                        {...register('note')}
-                      />
-                    </div>
-
-                    <div className="flex gap-2">
+                    <div className="sticky bottom-0 -mx-4 flex gap-2 border-t bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:-mx-6 md:px-6">
                       <Button
                         type="button"
                         variant="outline"
-                        className="text-red-600"
+                        className="min-h-11 touch-manipulation text-red-600"
                         disabled={isRegistering}
                         onClick={() => void handleRemove(selectedScan)}
                       >
                         <Trash2 className="mr-1 h-4 w-4" />削除
                       </Button>
-                      <Button type="submit" className="flex-1" disabled={isRegistering}>
+                      <Button
+                        type="submit"
+                        className="min-h-11 flex-1 touch-manipulation"
+                        disabled={isRegistering}
+                      >
                         {isRegistering && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         確認して登録
                       </Button>

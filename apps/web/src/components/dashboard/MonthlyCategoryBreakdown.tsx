@@ -4,23 +4,26 @@
  * 支出カテゴリごとの割合を円グラフで表示します。
  */
 
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
-import type { TooltipContentProps } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { EXPENSE_CATEGORY_CHART_COLORS } from '@/constants/categories';
-import { calculateExpenseCategoryBreakdown } from '@/lib/dashboard';
-import { CategoryTransactionsModal } from '@/components/modals/CategoryTransactionsModal';
-import type { Transaction, ExpenseCategoryKey } from '@/types/transaction';
+import { useState } from "react";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import type { TooltipContentProps } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EXPENSE_CATEGORY_CHART_COLORS } from "@/constants/categories";
+import {
+  calculateExpenseCategoryBreakdown,
+  type ExpenseBreakdownKey,
+} from "@/lib/dashboard";
+import { CategoryTransactionsModal } from "@/components/modals/CategoryTransactionsModal";
+import type { Transaction } from "@/types/transaction";
 
 /**
  * 金額フォーマッター
  */
-const currencyFormatter = new Intl.NumberFormat('ja-JP', {
-  style: 'currency',
-  currency: 'JPY',
+const currencyFormatter = new Intl.NumberFormat("ja-JP", {
+  style: "currency",
+  currency: "JPY",
   maximumFractionDigits: 0,
 });
 
@@ -41,21 +44,26 @@ type BreakdownTooltipPayload = {
   value: number;
 };
 
-function isBreakdownTooltipPayload(data: unknown): data is BreakdownTooltipPayload {
-  if (!data || typeof data !== 'object') {
+function isBreakdownTooltipPayload(
+  data: unknown,
+): data is BreakdownTooltipPayload {
+  if (!data || typeof data !== "object") {
     return false;
   }
 
   const candidate = data as Record<string, unknown>;
   return (
-    typeof candidate.label === 'string' &&
-    typeof candidate.amount === 'number' &&
-    typeof candidate.ratio === 'number' &&
-    typeof candidate.value === 'number'
+    typeof candidate.label === "string" &&
+    typeof candidate.amount === "number" &&
+    typeof candidate.ratio === "number" &&
+    typeof candidate.value === "number"
   );
 }
 
-function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) {
+function ChartTooltip({
+  active,
+  payload,
+}: TooltipContentProps<number, string>) {
   if (!active || !payload || payload.length === 0) {
     return null;
   }
@@ -120,7 +128,8 @@ export function MonthlyCategoryBreakdown({
   onEdit?: (transaction: Transaction) => void;
   onDelete?: (transaction: Transaction) => void;
 }) {
-  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategoryKey | null>(null);
+  const [selectedCategory, setSelectedCategory] =
+    useState<ExpenseBreakdownKey | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   if (isLoading) {
@@ -137,7 +146,9 @@ export function MonthlyCategoryBreakdown({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 p-8 text-center">
-            <p className="text-sm text-gray-500">この月の支出データがまだありません</p>
+            <p className="text-sm text-gray-500">
+              この月の支出データがまだありません
+            </p>
             <p className="mt-1 text-xs text-gray-400">
               世帯向け立替は支出として計上し、個別の立替は内訳に含めていません。
             </p>
@@ -147,17 +158,26 @@ export function MonthlyCategoryBreakdown({
     );
   }
 
-  const chartData: Array<BreakdownTooltipPayload & { name: string; color: string; key: ExpenseCategoryKey }> = items.map((item) => ({
+  const chartData: Array<
+    BreakdownTooltipPayload & {
+      name: string;
+      color: string;
+      key: ExpenseBreakdownKey;
+    }
+  > = items.map((item) => ({
     name: item.category.label,
     label: item.category.label,
     value: item.amount,
     amount: item.amount,
     ratio: item.ratio,
-    color: EXPENSE_CATEGORY_CHART_COLORS[item.key],
+    color:
+      item.key === "uncategorized"
+        ? "var(--muted-foreground)"
+        : EXPENSE_CATEGORY_CHART_COLORS[item.key],
     key: item.key,
   }));
 
-  const handleCategoryClick = (categoryKey: ExpenseCategoryKey) => {
+  const handleCategoryClick = (categoryKey: ExpenseBreakdownKey) => {
     setSelectedCategory(categoryKey);
     setIsModalOpen(true);
   };
@@ -173,14 +193,17 @@ export function MonthlyCategoryBreakdown({
         <CardHeader className="space-y-1">
           <CardTitle>カテゴリ内訳</CardTitle>
           <p className="text-xs text-gray-500">
-            合計 {currencyFormatter.format(total)} ・世帯向け立替は含まれ、個別立替は除外しています
+            合計 {currencyFormatter.format(total)}{" "}
+            ・世帯向け立替は含まれ、個別立替は除外しています
           </p>
         </CardHeader>
         <CardContent className="grid gap-6 sm:grid-cols-[minmax(0,1fr)] lg:grid-cols-[60%_1fr]">
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Tooltip<number, string> content={(props) => <ChartTooltip {...props} />} />
+                <Tooltip<number, string>
+                  content={(props) => <ChartTooltip {...props} />}
+                />
                 <Pie
                   data={chartData}
                   dataKey="value"
@@ -189,14 +212,19 @@ export function MonthlyCategoryBreakdown({
                   outerRadius="90%"
                   paddingAngle={2}
                   onClick={(data: unknown) => {
-                    if (data && typeof data === 'object' && 'key' in data) {
-                      handleCategoryClick(data.key as ExpenseCategoryKey);
+                    if (data && typeof data === "object" && "key" in data) {
+                      handleCategoryClick(data.key as ExpenseBreakdownKey);
                     }
                   }}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: "pointer" }}
                 >
                   {chartData.map((item) => (
-                    <Cell key={item.name} fill={item.color} stroke="white" strokeWidth={1} />
+                    <Cell
+                      key={item.name}
+                      fill={item.color}
+                      stroke="white"
+                      strokeWidth={1}
+                    />
                   ))}
                 </Pie>
               </PieChart>
@@ -216,8 +244,12 @@ export function MonthlyCategoryBreakdown({
                     style={{ backgroundColor: item.color }}
                   />
                   <div>
-                    <p className="text-sm font-medium text-gray-700">{item.label}</p>
-                    <p className="text-xs text-gray-400">{formatPercent(item.ratio)}</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      {item.label}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {formatPercent(item.ratio)}
+                    </p>
                   </div>
                 </div>
                 <p className="text-sm font-semibold text-gray-700">

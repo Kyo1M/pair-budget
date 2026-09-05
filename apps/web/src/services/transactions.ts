@@ -1,21 +1,21 @@
 /**
  * 取引管理サービス
- * 
+ *
  * 取引の取得・作成・削除を行います。
  * Supabase の transactions テーブルを操作します。
  */
 
-import { createClient } from '@/lib/supabase/client';
-import type { Database } from '@/types/supabase';
+import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/types/supabase";
 import {
   TRANSACTION_CATEGORY_KEYS,
   type Transaction,
   type TransactionCategoryKey,
   type TransactionData,
   type PlaceSuggestion,
-} from '@/types/transaction';
+} from "@/types/transaction";
 
-type TransactionRow = Database['public']['Tables']['transactions']['Row'];
+type TransactionRow = Database["public"]["Tables"]["transactions"]["Row"];
 
 const TRANSACTION_SELECT = `
   id,
@@ -39,19 +39,19 @@ const CATEGORY_KEY_SET = new Set<string>(TRANSACTION_CATEGORY_KEYS);
 
 /**
  * Supabase の Row データをアプリ用の型に整形
- * 
+ *
  * @param row - Supabase Row
  * @returns Transaction
  */
 export function mapTransaction(
   row: TransactionRow,
-  receiptScanId: string | null = null
+  receiptScanId: string | null = null,
 ): Transaction {
   return {
     id: row.id,
     householdId: row.household_id,
     type: row.type,
-    amount: typeof row.amount === 'string' ? Number(row.amount) : row.amount,
+    amount: typeof row.amount === "string" ? Number(row.amount) : row.amount,
     occurredOn: row.occurred_on,
     category: normalizeCategory(row.category),
     note: row.note,
@@ -69,30 +69,48 @@ export function mapTransaction(
 
 async function mapTransactionsWithReceipts(
   supabase: ReturnType<typeof createClient>,
-  rows: TransactionRow[]
+  rows: TransactionRow[],
 ): Promise<Transaction[]> {
   if (rows.length === 0) {
     return [];
   }
-  const ids = rows.map((row) => row.id);
-  const { data } = await supabase
-    .from('receipt_scans')
-    .select('id, transaction_id')
-    .in('transaction_id', ids)
-    .eq('status', 'registered');
-  const receiptByTransaction = new Map(
-    (data ?? []).map((row) => [row.transaction_id, row.id])
+  const receiptByTransaction = new Map<string | null, string>();
+  // URL長とAPIの件数上限を超えないよう、画像の関連付けも小分けに取得する。
+  for (let offset = 0; offset < rows.length; offset += 400) {
+    const batches = Array.from({ length: 4 }, (_, index) =>
+      rows.slice(offset + index * 100, offset + (index + 1) * 100),
+    ).filter((batch) => batch.length > 0);
+    const results = await Promise.all(
+      batches.map((batch) =>
+        supabase
+          .from("receipt_scans")
+          .select("id, transaction_id")
+          .in(
+            "transaction_id",
+            batch.map((row) => row.id),
+          )
+          .eq("status", "registered"),
+      ),
+    );
+    for (const { data } of results) {
+      for (const receipt of data ?? [])
+        receiptByTransaction.set(receipt.transaction_id, receipt.id);
+    }
+  }
+  return rows.map((row) =>
+    mapTransaction(row, receiptByTransaction.get(row.id) ?? null),
   );
-  return rows.map((row) => mapTransaction(row, receiptByTransaction.get(row.id) ?? null));
 }
 
 /**
  * カテゴリキーを安全に整形
- * 
+ *
  * @param value - カテゴリ文字列
  * @returns 取引カテゴリキーまたはnull
  */
-function normalizeCategory(value: string | null): TransactionCategoryKey | null {
+function normalizeCategory(
+  value: string | null,
+): TransactionCategoryKey | null {
   if (!value) {
     return null;
   }
@@ -101,21 +119,26 @@ function normalizeCategory(value: string | null): TransactionCategoryKey | null 
 
 /**
  * 月指定の文字列 (YYYY-MM) から日付範囲を算出
- * 
+ *
  * @param month - YYYY-MM 形式の文字列
  * @returns 月初と月末の日付
  */
 function getMonthDateRange(month: string) {
   const match = /^(\d{4})-(\d{2})$/.exec(month);
   if (!match) {
-    throw new Error('月は YYYY-MM 形式で指定してください');
+    throw new Error("月は YYYY-MM 形式で指定してください");
   }
 
   const year = Number(match[1]);
   const monthIndex = Number(match[2]);
 
-  if (Number.isNaN(year) || Number.isNaN(monthIndex) || monthIndex < 1 || monthIndex > 12) {
-    throw new Error('月は YYYY-MM 形式で指定してください');
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthIndex) ||
+    monthIndex < 1 ||
+    monthIndex > 12
+  ) {
+    throw new Error("月は YYYY-MM 形式で指定してください");
   }
 
   const lastDay = new Date(year, monthIndex, 0).getDate();
@@ -123,48 +146,55 @@ function getMonthDateRange(month: string) {
 
   return {
     startDate: `${match[1]}-${paddedMonth}-01`,
-    endDate: `${match[1]}-${paddedMonth}-${String(lastDay).padStart(2, '0')}`,
+    endDate: `${match[1]}-${paddedMonth}-${String(lastDay).padStart(2, "0")}`,
   };
 }
 
 /**
  * 取引一覧を取得
- * 
+ *
  * @param householdId - 世帯ID
  * @param month - 月 (YYYY-MM) 任意
  * @returns 取引一覧
  */
 export async function getTransactions(
   householdId: string,
-  month?: string
+  month?: string,
 ): Promise<Transaction[]> {
   const supabase = createClient();
 
-  let query = supabase
-    .from('transactions')
-    .select(TRANSACTION_SELECT)
-    .eq('household_id', householdId)
-    .order('occurred_on', { ascending: false })
-    .order('created_at', { ascending: false });
+  const rows = await getAllTransactionRows(
+    supabase,
+    householdId,
+    month ? getMonthDateRange(month) : undefined,
+  );
+  return mapTransactionsWithReceipts(supabase, rows);
+}
 
-  if (month) {
-    try {
-      const { startDate, endDate } = getMonthDateRange(month);
-      query = query.gte('occurred_on', startDate).lte('occurred_on', endDate);
-    } catch (error) {
-      console.error('取引取得エラー: 月指定が不正です', error);
-      throw error;
-    }
+async function getAllTransactionRows(
+  supabase: ReturnType<typeof createClient>,
+  householdId: string,
+  period?: { startDate: string; endDate: string },
+): Promise<TransactionRow[]> {
+  const rows: TransactionRow[] = [];
+  for (;;) {
+    let query = supabase
+      .from("transactions")
+      .select(TRANSACTION_SELECT)
+      .eq("household_id", householdId)
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
+    if (period)
+      query = query
+        .gte("occurred_on", period.startDate)
+        .lte("occurred_on", period.endDate);
+    const { data, error } = await query.range(rows.length, rows.length + 499);
+    if (error) throw new Error("取引の取得に失敗しました");
+    if (!data?.length) return rows;
+    rows.push(...data);
+    // API側の上限が500件未満でも、空のページまで進めて取りこぼさない。
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('取引取得エラー:', error);
-    throw new Error('取引の取得に失敗しました');
-  }
-
-  return mapTransactionsWithReceipts(supabase, data as TransactionRow[]);
 }
 
 /**
@@ -178,52 +208,41 @@ export async function getTransactions(
 export async function getTransactionsByDateRange(
   householdId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
 ): Promise<Transaction[]> {
   const supabase = createClient();
 
-  const { data, error } = await supabase
-    .from('transactions')
-    .select(TRANSACTION_SELECT)
-    .eq('household_id', householdId)
-    .gte('occurred_on', startDate)
-    .lte('occurred_on', endDate)
-    .order('occurred_on', { ascending: false })
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('期間指定取引取得エラー:', error);
-    throw new Error('取引の取得に失敗しました');
-  }
-
-  const rows = (data ?? []) as TransactionRow[];
+  const rows = await getAllTransactionRows(supabase, householdId, {
+    startDate,
+    endDate,
+  });
   return mapTransactionsWithReceipts(supabase, rows);
 }
 
 /**
  * 最近の取引を取得
- * 
+ *
  * @param householdId - 世帯ID
  * @param limit - 件数
  * @returns 最近の取引一覧
  */
 export async function getRecentTransactions(
   householdId: string,
-  limit: number
+  limit: number,
 ): Promise<Transaction[]> {
   const supabase = createClient();
 
   const { data, error } = await supabase
-    .from('transactions')
+    .from("transactions")
     .select(TRANSACTION_SELECT)
-    .eq('household_id', householdId)
-    .order('occurred_on', { ascending: false })
-    .order('created_at', { ascending: false })
+    .eq("household_id", householdId)
+    .order("occurred_on", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(Math.max(limit, 1));
 
   if (error) {
-    console.error('最近の取引取得エラー:', error);
-    throw new Error('最近の取引の取得に失敗しました');
+    console.error("最近の取引取得エラー:", error);
+    throw new Error("最近の取引の取得に失敗しました");
   }
 
   return mapTransactionsWithReceipts(supabase, data as TransactionRow[]);
@@ -231,11 +250,13 @@ export async function getRecentTransactions(
 
 /**
  * 取引を作成
- * 
+ *
  * @param input - 取引データ
  * @returns 作成された取引
  */
-export async function createTransaction(input: TransactionData): Promise<Transaction> {
+export async function createTransaction(
+  input: TransactionData,
+): Promise<Transaction> {
   const supabase = createClient();
 
   const {
@@ -243,10 +264,10 @@ export async function createTransaction(input: TransactionData): Promise<Transac
   } = await supabase.auth.getSession();
 
   if (!session?.user?.id) {
-    throw new Error('認証されていません。ログインしてください。');
+    throw new Error("認証されていません。ログインしてください。");
   }
 
-  const payload: Database['public']['Tables']['transactions']['Insert'] = {
+  const payload: Database["public"]["Tables"]["transactions"]["Insert"] = {
     household_id: input.householdId,
     type: input.type,
     amount: input.amount,
@@ -255,7 +276,8 @@ export async function createTransaction(input: TransactionData): Promise<Transac
     note: input.note?.trim() ? input.note.trim() : null,
     place: input.place?.trim() ? input.place.trim() : null,
     payer_user_id: input.payerUserId ?? null,
-    advance_to_user_id: input.type === 'advance' ? input.advanceToUserId ?? null : null,
+    advance_to_user_id:
+      input.type === "advance" ? (input.advanceToUserId ?? null) : null,
     recurring_expense_id: input.recurringExpenseId ?? null,
     recurring_income_id: input.recurringIncomeId ?? null,
     created_by: session.user.id,
@@ -265,14 +287,14 @@ export async function createTransaction(input: TransactionData): Promise<Transac
   // TODO: Supabase CLIで型定義を自動生成し、as anyを削除する (チケット: PB-66)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
-    .from('transactions')
+    .from("transactions")
     .insert([payload])
     .select(TRANSACTION_SELECT)
     .single();
 
   if (error) {
-    console.error('取引作成エラー:', error);
-    throw new Error('取引の作成に失敗しました');
+    console.error("取引作成エラー:", error);
+    throw new Error("取引の作成に失敗しました");
   }
 
   return mapTransaction(data as TransactionRow);
@@ -280,7 +302,7 @@ export async function createTransaction(input: TransactionData): Promise<Transac
 
 /**
  * 取引を削除
- * 
+ *
  * @param id - 取引ID
  */
 export async function deleteTransaction(id: string): Promise<void> {
@@ -291,52 +313,54 @@ export async function deleteTransaction(id: string): Promise<void> {
   } = await supabase.auth.getSession();
 
   if (!session?.user?.id) {
-    throw new Error('認証されていません。ログインしてください。');
+    throw new Error("認証されていません。ログインしてください。");
   }
 
   const { data: receiptScan } = await supabase
-    .from('receipt_scans')
-    .select('id, storage_path')
-    .eq('transaction_id', id)
+    .from("receipt_scans")
+    .select("id, storage_path")
+    .eq("transaction_id", id)
     .maybeSingle();
 
   // .select() で削除された行を取得し、0行（RLS で弾かれた・存在しない）を検知する。
   // これがないと RLS により削除対象が0行でも error=null となり「成功」扱いになってしまう。
   const { data, error } = await supabase
-    .from('transactions')
+    .from("transactions")
     .delete()
-    .eq('id', id)
-    .select('id');
+    .eq("id", id)
+    .select("id");
 
   if (error) {
-    console.error('取引削除エラー:', error);
-    throw new Error('取引の削除に失敗しました');
+    console.error("取引削除エラー:", error);
+    throw new Error("取引の削除に失敗しました");
   }
 
   if (!data || data.length === 0) {
-    throw new Error('取引を削除できませんでした（対象が見つからないか、権限がありません）');
+    throw new Error(
+      "取引を削除できませんでした（対象が見つからないか、権限がありません）",
+    );
   }
 
   if (receiptScan) {
     const { error: storageError } = await supabase.storage
-      .from('receipt-images')
+      .from("receipt-images")
       .remove([receiptScan.storage_path]);
     if (!storageError) {
-      await supabase.from('receipt_scans').delete().eq('id', receiptScan.id);
+      await supabase.from("receipt_scans").delete().eq("id", receiptScan.id);
     }
   }
 }
 
 /**
  * 取引を更新
- * 
+ *
  * @param id - 取引ID
  * @param input - 更新データ（部分的な更新が可能）
  * @returns 更新された取引
  */
 export async function updateTransaction(
   id: string,
-  input: Partial<TransactionData>
+  input: Partial<TransactionData>,
 ): Promise<Transaction> {
   const supabase = createClient();
 
@@ -345,10 +369,12 @@ export async function updateTransaction(
   } = await supabase.auth.getSession();
 
   if (!session?.user?.id) {
-    throw new Error('認証されていません。ログインしてください。');
+    throw new Error("認証されていません。ログインしてください。");
   }
 
-  const payload: Partial<Database['public']['Tables']['transactions']['Update']> = {};
+  const payload: Partial<
+    Database["public"]["Tables"]["transactions"]["Update"]
+  > = {};
 
   if (input.amount !== undefined) {
     payload.amount = input.amount;
@@ -371,11 +397,11 @@ export async function updateTransaction(
   if (input.type !== undefined) {
     payload.type = input.type;
     // タイプがadvance以外の場合は立替先をクリア
-    if (input.type !== 'advance' && input.advanceToUserId !== undefined) {
+    if (input.type !== "advance" && input.advanceToUserId !== undefined) {
       payload.advance_to_user_id = null;
     }
   }
-  if (input.advanceToUserId !== undefined && input.type === 'advance') {
+  if (input.advanceToUserId !== undefined && input.type === "advance") {
     payload.advance_to_user_id = input.advanceToUserId ?? null;
   }
   if (input.recurringExpenseId !== undefined) {
@@ -388,18 +414,20 @@ export async function updateTransaction(
   // @supabase/ssr型定義の問題により型アサーション使用
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
-    .from('transactions')
+    .from("transactions")
     .update(payload)
-    .eq('id', id)
+    .eq("id", id)
     .select(TRANSACTION_SELECT)
     .single();
 
   if (error) {
-    console.error('取引更新エラー:', error);
-    throw new Error('取引の更新に失敗しました');
+    console.error("取引更新エラー:", error);
+    throw new Error("取引の更新に失敗しました");
   }
 
-  const [mapped] = await mapTransactionsWithReceipts(supabase, [data as TransactionRow]);
+  const [mapped] = await mapTransactionsWithReceipts(supabase, [
+    data as TransactionRow,
+  ]);
   return mapped;
 }
 
@@ -407,15 +435,17 @@ export async function updateTransaction(
  * 世帯内の過去の場所（place）をサジェスト用に取得する。
  * @returns 重複なし・昇順の場所リスト。失敗時は空配列。
  */
-export async function getPlaceSuggestions(householdId: string): Promise<PlaceSuggestion[]> {
+export async function getPlaceSuggestions(
+  householdId: string,
+): Promise<PlaceSuggestion[]> {
   const supabase = createClient();
 
-  const { data, error } = await supabase.rpc('get_ranked_place_suggestions', {
+  const { data, error } = await supabase.rpc("get_ranked_place_suggestions", {
     target_household: householdId,
   });
 
   if (error) {
-    console.error('場所サジェスト取得エラー:', error);
+    console.error("場所サジェスト取得エラー:", error);
     return [];
   }
 

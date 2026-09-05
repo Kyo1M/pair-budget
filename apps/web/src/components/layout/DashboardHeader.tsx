@@ -1,13 +1,20 @@
 /**
  * ダッシュボードヘッダー
- * 
+ *
  * 世帯名と月選択、アクションボタンを表示します。
  */
 
-'use client';
+"use client";
 
-import { ChevronLeft, ChevronRight, LogOut, Share2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import {
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  Share2,
+  ChartNoAxesCombined,
+} from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 /**
  * ヘッダーのプロパティ
@@ -18,7 +25,7 @@ interface DashboardHeaderProps {
   /** ユーザーのメールアドレス */
   userEmail?: string;
   /** 表示モード */
-  viewMode: 'monthly' | 'yearly' | 'recurring' | 'recurring-income';
+  viewMode: "monthly" | "yearly" | "recurring" | "recurring-income";
   /** 選択中の月 (YYYY-MM) */
   selectedMonth?: string;
   /** 選択中の年 */
@@ -41,12 +48,12 @@ interface DashboardHeaderProps {
 
 /**
  * 月表示用フォーマット
- * 
+ *
  * @param month - YYYY-MM
  * @returns YYYY年M月
  */
 function formatMonthLabel(month: string): string {
-  const [year, monthValue] = month.split('-');
+  const [year, monthValue] = month.split("-");
   return `${year}年${Number(monthValue)}月`;
 }
 
@@ -72,13 +79,11 @@ export function DashboardHeader({
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold">{householdName}</h1>
-          {userEmail && (
-            <p className="text-sm text-gray-600">{userEmail}</p>
-          )}
+          {userEmail && <p className="text-sm text-gray-600">{userEmail}</p>}
         </div>
 
         <div className="flex flex-col items-stretch gap-3 md:flex-row md:items-center">
-          {viewMode === 'monthly' ? (
+          {viewMode === "monthly" ? (
             <div className="flex items-center justify-center gap-2 rounded-full border px-3 py-1.5">
               <Button
                 variant="ghost"
@@ -90,7 +95,7 @@ export function DashboardHeader({
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="min-w-[120px] text-center text-sm font-semibold">
-                {selectedMonth ? formatMonthLabel(selectedMonth) : '----'}
+                {selectedMonth ? formatMonthLabel(selectedMonth) : "----"}
               </span>
               <Button
                 variant="ghost"
@@ -102,7 +107,7 @@ export function DashboardHeader({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-          ) : viewMode === 'yearly' ? (
+          ) : viewMode === "yearly" ? (
             <div className="flex items-center justify-center gap-2 rounded-full border px-3 py-1.5">
               <Button
                 variant="ghost"
@@ -114,7 +119,7 @@ export function DashboardHeader({
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="min-w-[120px] text-center text-sm font-semibold">
-                {selectedYear ? `${selectedYear}年` : '----'}
+                {selectedYear ? `${selectedYear}年` : "----"}
               </span>
               <Button
                 variant="ghost"
@@ -128,7 +133,20 @@ export function DashboardHeader({
             </div>
           ) : null}
 
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="min-h-11 gap-2"
+            >
+              <Link
+                href={`/dashboard${selectedMonth ? `?month=${selectedMonth}` : ""}`}
+              >
+                <ChartNoAxesCombined className="h-4 w-4" />
+                ダッシュボード
+              </Link>
+            </Button>
             {isOwner && onShare && (
               <Button
                 onClick={onShare}

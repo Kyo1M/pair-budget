@@ -1,44 +1,48 @@
 /**
  * カテゴリ別取引履歴モーダル
- * 
+ *
  * 指定したカテゴリの取引履歴を表示します。
  */
 
-'use client';
+"use client";
 
-import { MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import type { Transaction, ExpenseCategoryKey } from '@/types/transaction';
-import { getTransactionCategory } from '@/constants/categories';
-import { ReceiptImageButton } from '@/components/receipts/ReceiptImageButton';
+} from "@/components/ui/dropdown-menu";
+import type { Transaction } from "@/types/transaction";
+import {
+  getExpenseBreakdownCategory,
+  getExpenseBreakdownKey,
+  type ExpenseBreakdownKey,
+} from "@/lib/dashboard";
+import { ReceiptImageButton } from "@/components/receipts/ReceiptImageButton";
 
 /**
  * 日付フォーマッター (YYYY/M/D)
  */
-const dateFormatter = new Intl.DateTimeFormat('ja-JP', {
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
+const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
 });
 
 /**
  * 金額フォーマッター
  */
-const currencyFormatter = new Intl.NumberFormat('ja-JP', {
-  style: 'currency',
-  currency: 'JPY',
+const currencyFormatter = new Intl.NumberFormat("ja-JP", {
+  style: "currency",
+  currency: "JPY",
   maximumFractionDigits: 0,
 });
 
@@ -53,7 +57,7 @@ interface CategoryTransactionsModalProps {
   /** 取引一覧 */
   transactions: Transaction[];
   /** 表示するカテゴリ */
-  category: ExpenseCategoryKey;
+  category: ExpenseBreakdownKey;
   /** ローディング状態 */
   isLoading: boolean;
   /** 編集アクション */
@@ -65,30 +69,30 @@ interface CategoryTransactionsModalProps {
 /**
  * 取引種別に応じた表示色を取得
  */
-function getAmountClasses(type: Transaction['type']): string {
+function getAmountClasses(type: Transaction["type"]): string {
   switch (type) {
-    case 'income':
-      return 'text-emerald-600';
-    case 'advance':
-      return 'text-amber-600';
-    case 'expense':
+    case "income":
+      return "text-emerald-600";
+    case "advance":
+      return "text-amber-600";
+    case "expense":
     default:
-      return 'text-rose-600';
+      return "text-rose-600";
   }
 }
 
 /**
  * 取引種別ラベル
  */
-function getTypeLabel(type: Transaction['type']): string {
+function getTypeLabel(type: Transaction["type"]): string {
   switch (type) {
-    case 'income':
-      return '収入';
-    case 'advance':
-      return '立替';
-    case 'expense':
+    case "income":
+      return "収入";
+    case "advance":
+      return "立替";
+    case "expense":
     default:
-      return '支出';
+      return "支出";
   }
 }
 
@@ -104,25 +108,29 @@ export function CategoryTransactionsModal({
   onEdit,
   onDelete,
 }: CategoryTransactionsModalProps) {
-  const categoryInfo = getTransactionCategory(category);
+  const categoryInfo = getExpenseBreakdownCategory(category);
 
   // 指定カテゴリでフィルタリング
   // カテゴリが設定されている取引のみを対象とし、支出または世帯向け立替（advanceToUserIdがnull）のみを含める
   const filteredTransactions = transactions.filter((transaction) => {
     // カテゴリが一致する
-    if (transaction.category !== category) {
+    if (getExpenseBreakdownKey(transaction) !== category) {
       return false;
     }
 
     // 支出または世帯向け立替のみを含める
-    const isExpense = transaction.type === 'expense';
-    const isHouseholdAdvance = transaction.type === 'advance' && transaction.advanceToUserId == null;
+    const isExpense = transaction.type === "expense";
+    const isHouseholdAdvance =
+      transaction.type === "advance" && transaction.advanceToUserId == null;
 
     return isExpense || isHouseholdAdvance;
   });
 
   // 合計金額を計算
-  const totalAmount = filteredTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+  const totalAmount = filteredTransactions.reduce(
+    (sum, transaction) => sum + transaction.amount,
+    0,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -137,7 +145,8 @@ export function CategoryTransactionsModal({
             <span>{categoryInfo.label}の利用履歴</span>
           </DialogTitle>
           <DialogDescription>
-            {filteredTransactions.length}件の取引 ・ 合計 {currencyFormatter.format(totalAmount)}
+            {filteredTransactions.length}件の取引 ・ 合計{" "}
+            {currencyFormatter.format(totalAmount)}
           </DialogDescription>
         </DialogHeader>
 
@@ -146,7 +155,10 @@ export function CategoryTransactionsModal({
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 border rounded-lg"
+                >
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
                     <div>
@@ -160,18 +172,20 @@ export function CategoryTransactionsModal({
             </div>
           ) : filteredTransactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 p-8 text-center">
-              <p className="text-sm text-gray-500">このカテゴリの取引がまだありません</p>
+              <p className="text-sm text-gray-500">
+                このカテゴリの取引がまだありません
+              </p>
             </div>
           ) : (
             <ul className="space-y-2">
               {filteredTransactions.map((transaction) => {
                 const amountClass = getAmountClasses(transaction.type);
                 const amountSign =
-                  transaction.type === 'income'
-                    ? '+'
-                    : transaction.type === 'advance'
-                    ? '±'
-                    : '-';
+                  transaction.type === "income"
+                    ? "+"
+                    : transaction.type === "advance"
+                      ? "±"
+                      : "-";
 
                 return (
                   <li
@@ -184,10 +198,14 @@ export function CategoryTransactionsModal({
                           {transaction.note || categoryInfo.label}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                          <span>{dateFormatter.format(new Date(transaction.occurredOn))}</span>
+                          <span>
+                            {dateFormatter.format(
+                              new Date(transaction.occurredOn),
+                            )}
+                          </span>
                           <span>•</span>
                           <span
-                            className={`rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium ${amountClass.replace('text', 'bg').replace('-600', '-100')}`}
+                            className={`rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium ${amountClass.replace("text", "bg").replace("-600", "-100")}`}
                           >
                             {getTypeLabel(transaction.type)}
                           </span>
@@ -196,7 +214,10 @@ export function CategoryTransactionsModal({
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {transaction.receiptScanId && (
-                        <ReceiptImageButton scanId={transaction.receiptScanId} compact />
+                        <ReceiptImageButton
+                          scanId={transaction.receiptScanId}
+                          compact
+                        />
                       )}
                       <div className={`text-sm font-semibold ${amountClass}`}>
                         {amountSign}
