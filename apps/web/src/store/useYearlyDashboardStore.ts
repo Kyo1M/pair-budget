@@ -3,6 +3,7 @@
  */
 
 import { create } from 'zustand';
+import { withTimeout } from '@/lib/withTimeout';
 import { getTransactionsByDateRange } from '@/services/transactions';
 import { calculateTransactionSummary, isHouseholdExpense } from '@/lib/dashboard';
 import type { Transaction } from '@/types/transaction';
@@ -21,6 +22,7 @@ interface YearlySummary {
 }
 
 interface YearlyDashboardStore {
+  loadedKey: string | null;
   /** 選択中の年 */
   selectedYear: number;
   /** 年次サマリー */
@@ -86,7 +88,10 @@ function calculateYearlySummary(transactions: Transaction[]): YearlySummary {
   return calculateTransactionSummary(transactions);
 }
 
+let yearlyRequest = 0;
+
 export const useYearlyDashboardStore = create<YearlyDashboardStore>((set) => ({
+  loadedKey: null,
   selectedYear: getCurrentYear(),
   summary: null,
   monthlyDifferences: [],
@@ -94,14 +99,17 @@ export const useYearlyDashboardStore = create<YearlyDashboardStore>((set) => ({
   error: null,
 
   async loadYearlySummary(householdId: string, year: number) {
-    set({ isLoading: true, error: null, selectedYear: year });
+    const request = ++yearlyRequest;
+    set({ isLoading: true, error: null, selectedYear: year, loadedKey: null });
     try {
       const { startDate, endDate } = getYearDateRange(year);
-      const transactions = await getTransactionsByDateRange(householdId, startDate, endDate);
+      const transactions = await withTimeout(getTransactionsByDateRange(householdId, startDate, endDate));
+      if (request !== yearlyRequest) return;
       const summary = calculateYearlySummary(transactions);
       const monthlyDifferences = buildMonthlyDifferences(transactions);
-      set({ summary, monthlyDifferences, isLoading: false });
+      set({ summary, monthlyDifferences, isLoading: false, loadedKey: `${householdId}:${year}` });
     } catch (error) {
+      if (request !== yearlyRequest) return;
       console.error('年次サマリー取得エラー:', error);
       set({
         error: error instanceof Error ? error.message : '年次サマリーの取得に失敗しました',

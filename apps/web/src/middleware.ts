@@ -8,6 +8,7 @@
 
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { withTimeout } from '@/lib/withTimeout';
 
 /**
  * Middleware関数
@@ -45,10 +46,21 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // セッションを取得
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // 認証先の停止・通信失敗を、未ログインや25秒の無応答にしない。
+  const unavailable = () => NextResponse.rewrite(new URL('/connection-error', request.url), {
+    status: 503,
+    headers: { 'Cache-Control': 'no-store', 'Retry-After': '10' },
+  });
+  let session;
+  try {
+    const result = await withTimeout(supabase.auth.getSession(), 8_000);
+    if (result.error && (result.error.status === 0 || result.error.status === 429 || (result.error.status ?? 500) >= 500)) {
+      return unavailable();
+    }
+    session = result.data.session;
+  } catch {
+    return unavailable();
+  }
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/auth');
 
@@ -75,9 +87,10 @@ export const config = {
      * - _next/static (静的ファイル)
      * - _next/image (画像最適化ファイル)
      * - favicon.ico (ファビコン)
+     * - connection-error (認証先の障害中にも表示する再試行画面)
      * - public配下のファイル (画像、SVGなど)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!connection-error(?:/|$)|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
 

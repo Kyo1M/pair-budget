@@ -8,6 +8,7 @@
  */
 
 import { create } from 'zustand';
+import { withTimeout } from '@/lib/withTimeout';
 import type { User, Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 
@@ -51,7 +52,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     try {
       set({ isLoading: true, error: null });
       const supabase = createClient();
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session }, error } = await withTimeout(supabase.auth.getSession());
 
       if (error) {
         throw error;
