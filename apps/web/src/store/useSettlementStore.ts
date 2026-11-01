@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import { withTimeout } from '@/lib/withTimeout';
 import type {
   BalanceSettlementData,
   HouseholdBalance,
@@ -25,6 +26,8 @@ const BALANCE_HIGHLIGHT_DURATION = 1200;
  * 立替残高ストアの型定義
  */
 interface SettlementStore {
+  balanceLoadError: string | null;
+  loadedHouseholdId: string | null;
   /** 立替残高一覧 */
   balances: HouseholdBalance[];
   /** 精算履歴 */
@@ -57,6 +60,7 @@ interface SettlementStore {
  * 立替残高ストア
  */
 export const useSettlementStore = create<SettlementStore>((set) => {
+  let balanceRequest = 0;
   /**
    * 残高データを反映し、必要に応じてハイライトを付与
    */
@@ -108,6 +112,8 @@ export const useSettlementStore = create<SettlementStore>((set) => {
   };
 
   return {
+    balanceLoadError: null,
+    loadedHouseholdId: null,
     balances: [],
     settlements: [],
     isLoading: false,
@@ -120,13 +126,18 @@ export const useSettlementStore = create<SettlementStore>((set) => {
      * 残高を読み込み
      */
     loadBalances: async (householdId: string) => {
+      const request = ++balanceRequest;
       try {
-        set({ isLoading: true, error: null });
-        const balances = await getHouseholdBalances(householdId);
+        set({ isLoading: true, error: null, balanceLoadError: null, loadedHouseholdId: null });
+        const balances = await withTimeout(getHouseholdBalances(householdId));
+        if (request !== balanceRequest) return;
         applyBalances(balances, false);
+        set({ loadedHouseholdId: householdId });
       } catch (error) {
+        if (request !== balanceRequest) return;
         console.error('立替残高読み込みエラー:', error);
         set({
+          balanceLoadError: error instanceof Error ? error.message : '立替残高の取得に失敗しました',
           error: error instanceof Error ? error.message : '立替残高の取得に失敗しました',
           isLoading: false,
         });

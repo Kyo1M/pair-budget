@@ -32,6 +32,7 @@ import { MonthlyDashboardView } from '@/components/dashboard/MonthlyDashboardVie
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomActionBar, type BottomAction } from '@/components/layout/BottomActionBar';
 import { Button } from '@/components/ui/button';
+import { LoadError } from '@/components/ui/LoadError';
 import { formatLocalDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useHouseholdStore } from '@/store/useHouseholdStore';
@@ -69,15 +70,17 @@ function shiftMonth(base: string, offset: number): string {
  */
 export default function Home() {
   const router = useRouter();
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, isLoading: authLoading, error: authError, checkSession } = useAuthStore();
 
   const household = useHouseholdStore((state) => state.household);
   const members = useHouseholdStore((state) => state.members);
   const loadHousehold = useHouseholdStore((state) => state.loadHousehold);
   const householdLoading = useHouseholdStore((state) => state.isLoading);
+  const householdError = useHouseholdStore((state) => state.loadError);
+  const loadedUserId = useHouseholdStore((state) => state.loadedUserId);
+  const householdReady = !!user && loadedUserId === user.id && !householdError && !householdLoading;
 
   const transactions = useTransactionStore((state) => state.transactions);
-  const loadTransactions = useTransactionStore((state) => state.loadTransactions);
   const loadRecentTransactions = useTransactionStore((state) => state.loadRecentTransactions);
   const transactionsLoading = useTransactionStore((state) => state.isLoading);
   const transactionError = useTransactionStore((state) => state.error);
@@ -89,7 +92,7 @@ export default function Home() {
   const loadMonthlySummary = useDashboardStore((state) => state.loadMonthlySummary);
   const summaryLoading = useDashboardStore((state) => state.isLoading);
   const dashboardError = useDashboardStore((state) => state.error);
-  const clearDashboardError = useDashboardStore((state) => state.clearError);
+  const monthlyLoadedKey = useDashboardStore((state) => state.loadedKey);
 
   const yearlySummary = useYearlyDashboardStore((state) => state.summary);
   const yearlyDifferences = useYearlyDashboardStore((state) => state.monthlyDifferences);
@@ -98,12 +101,14 @@ export default function Home() {
   const loadYearlySummary = useYearlyDashboardStore((state) => state.loadYearlySummary);
   const yearlyLoading = useYearlyDashboardStore((state) => state.isLoading);
   const yearlyError = useYearlyDashboardStore((state) => state.error);
-  const clearYearlyError = useYearlyDashboardStore((state) => state.clearError);
+  const yearlyLoadedKey = useYearlyDashboardStore((state) => state.loadedKey);
 
   const balances = useSettlementStore((state) => state.balances);
   const loadBalances = useSettlementStore((state) => state.loadBalances);
   const loadSettlements = useSettlementStore((state) => state.loadSettlements);
   const balancesLoading = useSettlementStore((state) => state.isLoading);
+  const balanceLoadError = useSettlementStore((state) => state.balanceLoadError);
+  const balanceLoadedHouseholdId = useSettlementStore((state) => state.loadedHouseholdId);
   const balanceHighlights = useSettlementStore((state) => state.balanceHighlights);
   const settlementError = useSettlementStore((state) => state.error);
   const clearSettlementError = useSettlementStore((state) => state.clearError);
@@ -161,68 +166,51 @@ export default function Home() {
    * 世帯・月が変更されたときに取引とサマリーを読み込み
    */
   useEffect(() => {
-    if (!household) {
+    if (!household || !householdReady) {
       return;
     }
 
     const fetch = async () => {
       try {
-        await loadTransactions(household.id, selectedMonth);
         await loadMonthlySummary(household.id, selectedMonth);
       } catch (error) {
         console.error('月次データ読み込みエラー:', error);
-        toast.error('月次データの読み込みに失敗しました');
       }
     };
 
     void fetch();
-  }, [household, selectedMonth, loadTransactions, loadMonthlySummary]);
+  }, [household, householdReady, selectedMonth, loadMonthlySummary]);
 
   /**
    * 世帯確定後に最近の取引と残高を初期取得
    */
   useEffect(() => {
-    if (!household) {
+    if (!household || !householdReady) {
       return;
     }
 
-    const fetch = async () => {
-      try {
-        // 固定費の自動生成（日付ベース）
-        const generatedCount = await generateFixedTransactions(household.id);
-        if (generatedCount > 0) {
-          toast.success(`${generatedCount}件の固定費を自動登録しました`);
-          try {
-            await loadTransactions(household.id, selectedMonthRef.current);
-            await loadMonthlySummary(household.id, selectedMonthRef.current);
-          } catch (error) {
-            console.error('月次データ再読み込みエラー:', error);
-            toast.error('月次データの読み込みに失敗しました');
-          }
-        }
+    // 一つの読み込みに失敗しても、残高や他の一覧の取得は続ける。
+    void Promise.allSettled([
+      loadRecentTransactions(household.id),
+      loadBalances(household.id),
+      loadSettlements(household.id),
+      loadRecurringExpenses(household.id),
+      loadRecurringIncomes(household.id),
+      loadVariableReminders(household.id),
+      loadIncomeReminders(household.id),
+    ]);
 
-        // 変動費リマインダーの読み込み
-        await loadVariableReminders(household.id);
-
-        // 収入リマインダーの読み込み
-        await loadIncomeReminders(household.id);
-
-        // その他の初期データ読み込み
-        await Promise.all([
-          loadRecentTransactions(household.id),
-          loadBalances(household.id),
-          loadSettlements(household.id),
-          loadRecurringExpenses(household.id),
-          loadRecurringIncomes(household.id),
-        ]);
-      } catch (error) {
-        console.error('初期データ読み込みエラー:', error);
+    void generateFixedTransactions(household.id).then(async (generatedCount) => {
+      if (generatedCount > 0) {
+        toast.success(`${generatedCount}件の固定費を自動登録しました`);
+        await loadMonthlySummary(household.id, selectedMonthRef.current);
       }
-    };
-
-    void fetch();
+    }).catch((error) => {
+      console.error('固定費の初期読み込みエラー:', error);
+    });
   }, [
     household,
+    householdReady,
     loadRecentTransactions,
     loadBalances,
     loadSettlements,
@@ -231,7 +219,6 @@ export default function Home() {
     generateFixedTransactions,
     loadVariableReminders,
     loadIncomeReminders,
-    loadTransactions,
     loadMonthlySummary,
   ]);
 
@@ -244,20 +231,6 @@ export default function Home() {
       clearTransactionError();
     }
   }, [transactionError, clearTransactionError]);
-
-  useEffect(() => {
-    if (dashboardError) {
-      toast.error(dashboardError);
-      clearDashboardError();
-    }
-  }, [dashboardError, clearDashboardError]);
-
-  useEffect(() => {
-    if (yearlyError) {
-      toast.error(yearlyError);
-      clearYearlyError();
-    }
-  }, [yearlyError, clearYearlyError]);
 
   useEffect(() => {
     if (settlementError) {
@@ -322,25 +295,24 @@ export default function Home() {
       return;
     }
 
-    await loadMonthlySummary(household.id, selectedMonth);
-
+    // 登録自体は成功済み。再取得の失敗で登録失敗と表示しない。
+    const refreshes: Promise<unknown>[] = [loadMonthlySummary(household.id, selectedMonth)];
     if (activeView === 'yearly') {
-      await loadYearlySummary(household.id, selectedYear);
+      refreshes.push(loadYearlySummary(household.id, selectedYear));
     }
-
     if (transaction.type === 'advance') {
-      await loadBalances(household.id);
+      refreshes.push(loadBalances(household.id));
     }
-
     if (context?.source.kind === 'reminder') {
       if (context.source.reminderKind === 'expense') {
         completeReminder(context.source.reminderId);
-        await loadVariableReminders(household.id);
+        refreshes.push(loadVariableReminders(household.id));
       } else {
         completeIncomeReminder(context.source.reminderId);
-        await loadIncomeReminders(household.id);
+        refreshes.push(loadIncomeReminders(household.id));
       }
     }
+    await Promise.allSettled(refreshes);
   };
 
   /**
@@ -415,7 +387,6 @@ export default function Home() {
 
       // データ再読み込み
       await Promise.all([
-        loadTransactions(household.id, selectedMonth),
         loadRecentTransactions(household.id),
         loadMonthlySummary(household.id, selectedMonth),
       ]);
@@ -469,7 +440,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (!household) {
+    if (!household || !householdReady) {
       return;
     }
 
@@ -480,7 +451,7 @@ export default function Home() {
     void loadYearlySummary(household.id, selectedYear).catch((error) => {
       console.error('年次データ読み込みエラー:', error);
     });
-  }, [household, activeView, selectedYear, loadYearlySummary]);
+  }, [household, householdReady, activeView, selectedYear, loadYearlySummary]);
 
   const handleViewChange = (value: string) => {
     if (value === 'yearly') {
@@ -522,15 +493,32 @@ export default function Home() {
     },
   ];
 
-  /**
-   * ローディング表示
-   */
-  if (householdLoading) {
+  if (authLoading) {
+    return <p role="status" className="p-8 text-center">ログイン状態を確認中...</p>;
+  }
+
+  if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center text-gray-600">読み込み中...</div>
-      </div>
+      <main className="mx-auto max-w-lg p-8">
+        {authError ? (
+          <LoadError title="ログイン状態を確認できませんでした" onRetry={() => void checkSession()} />
+        ) : (
+          <p>ログインが必要です。<a className="text-blue-600 underline" href="/auth">ログインへ</a></p>
+        )}
+      </main>
     );
+  }
+
+  if (householdError) {
+    return (
+      <main className="mx-auto max-w-lg p-8">
+        <LoadError title="世帯情報を取得できませんでした" onRetry={() => void loadHousehold(user.id)} />
+      </main>
+    );
+  }
+
+  if (!householdReady) {
+    return <p role="status" className="p-8 text-center">世帯情報を読み込み中...</p>;
   }
 
   /**
@@ -598,12 +586,16 @@ export default function Home() {
               onRegisterIncomeReminder={handleRegisterFromIncomeReminder}
               onDismissIncomeReminder={dismissIncomeReminder}
               summary={summary}
-              summaryLoading={summaryLoading}
+              summaryLoading={summaryLoading || monthlyLoadedKey !== `${household.id}:${selectedMonth}`}
+              monthlyError={dashboardError}
+              onRetryMonthly={() => void loadMonthlySummary(household.id, selectedMonth).catch(() => {})}
               transactions={transactions}
-              transactionsLoading={transactionsLoading}
+              transactionsLoading={transactionsLoading || summaryLoading || monthlyLoadedKey !== `${household.id}:${selectedMonth}`}
               balances={balances}
               balanceHighlights={balanceHighlights}
-              balancesLoading={balancesLoading}
+              balancesLoading={balancesLoading || balanceLoadedHouseholdId !== household.id}
+              balanceError={balanceLoadError}
+              onRetryBalances={() => void loadBalances(household.id).catch(() => {})}
               currentUserId={user?.id}
               onSelectSettlementTarget={openSettlementModal}
               onEditTransaction={handleEditTransaction}
@@ -612,11 +604,15 @@ export default function Home() {
           </TabsContent>
 
           <TabsContent value="yearly" className="space-y-6">
-            <YearlyDashboardView
-              summary={yearlySummary}
-              chartData={yearlyChartData}
-              isLoading={yearlyLoading}
-            />
+            {yearlyError ? (
+              <LoadError title="年次集計を取得できませんでした" onRetry={() => void loadYearlySummary(household.id, selectedYear).catch(() => {})} />
+            ) : (
+              <YearlyDashboardView
+                summary={yearlySummary}
+                chartData={yearlyChartData}
+                isLoading={yearlyLoading || yearlyLoadedKey !== `${household.id}:${selectedYear}`}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="recurring" className="space-y-6">

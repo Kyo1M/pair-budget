@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import { withTimeout } from '@/lib/withTimeout';
 import type { Transaction, TransactionData } from '@/types/transaction';
 import {
   createTransaction as createTransactionService,
@@ -69,7 +70,7 @@ interface TransactionStore {
   /** エラーメッセージ */
   error: string | null;
   /** 取引一覧を読み込み */
-  loadTransactions: (householdId: string, month: string) => Promise<void>;
+  loadTransactions: (householdId: string, month: string) => Promise<Transaction[]>;
   /** 最近の取引を読み込み */
   loadRecentTransactions: (householdId: string, limit?: number) => Promise<void>;
   /** 取引を追加 */
@@ -87,6 +88,8 @@ interface TransactionStore {
 /**
  * 取引ストア
  */
+let transactionsRequest = 0;
+
 export const useTransactionStore = create<TransactionStore>((set) => ({
   currentMonth: formatMonth(new Date()),
   transactions: [],
@@ -101,14 +104,18 @@ export const useTransactionStore = create<TransactionStore>((set) => ({
    * 取引一覧を読み込み
    */
   loadTransactions: async (householdId: string, month: string) => {
+    const request = ++transactionsRequest;
     try {
       set({ isLoading: true, error: null, currentMonth: month });
-      const transactions = await getTransactionsService(householdId, month);
+      const transactions = await withTimeout(getTransactionsService(householdId, month));
+      if (request !== transactionsRequest) return transactions;
       set({
         transactions: sortTransactionsDesc(transactions),
         isLoading: false,
       });
+      return transactions;
     } catch (error) {
+      if (request !== transactionsRequest) throw error;
       console.error('取引読み込みエラー:', error);
       set({
         error: error instanceof Error ? error.message : '取引の取得に失敗しました',

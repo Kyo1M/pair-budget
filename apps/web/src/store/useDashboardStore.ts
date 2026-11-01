@@ -21,6 +21,7 @@ function getCurrentMonth(): string {
  * ダッシュボードストアの型定義
  */
 interface DashboardStore {
+  loadedKey: string | null;
   /** 月次サマリー */
   summary: MonthlySummary | null;
   /** 選択中の月 */
@@ -40,7 +41,10 @@ interface DashboardStore {
 /**
  * ダッシュボードストア
  */
+let summaryRequest = 0;
+
 export const useDashboardStore = create<DashboardStore>((set) => ({
+  loadedKey: null,
   summary: null,
   selectedMonth: getCurrentMonth(),
   isLoading: false,
@@ -50,20 +54,19 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
    * 月次サマリーを読み込み
    */
   loadMonthlySummary: async (householdId: string, month: string) => {
-    const transactionStore = useTransactionStore.getState();
-    set({ isLoading: true, error: null, selectedMonth: month });
+    const request = ++summaryRequest;
+    set({ isLoading: true, error: null, selectedMonth: month, loadedKey: null });
 
     try {
-      if (transactionStore.currentMonth !== month) {
-        await transactionStore.loadTransactions(householdId, month);
-      }
-
-      const transactions = useTransactionStore.getState().transactions;
+      const transactions = await useTransactionStore.getState().loadTransactions(householdId, month);
+      if (request !== summaryRequest) return;
       set({
+        loadedKey: `${householdId}:${month}`,
         summary: calculateTransactionSummary(transactions),
         isLoading: false,
       });
     } catch (error) {
+      if (request !== summaryRequest) return;
       console.error('月次サマリー取得エラー:', error);
       set({
         error: error instanceof Error ? error.message : '月次サマリーの取得に失敗しました',

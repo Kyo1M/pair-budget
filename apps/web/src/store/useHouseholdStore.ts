@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import { withTimeout } from '@/lib/withTimeout';
 import type { Household, HouseholdMember, JoinCode } from '@/types/household';
 import {
   createHousehold as createHouseholdService,
@@ -20,6 +21,8 @@ import {
  * 世帯ストアの型定義
  */
 interface HouseholdStore {
+  loadedUserId: string | null;
+  loadError: string | null;
   /** 現在の世帯情報 */
   household: Household | null;
   /** 世帯メンバー一覧 */
@@ -49,7 +52,11 @@ interface HouseholdStore {
 /**
  * 世帯管理ストア
  */
+let householdRequest = 0;
+
 export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
+  loadedUserId: null,
+  loadError: null,
   household: null,
   members: [],
   joinCode: null,
@@ -60,20 +67,25 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
    * 世帯情報を読み込み
    */
   loadHousehold: async (userId: string) => {
+    const request = ++householdRequest;
     try {
-      set({ isLoading: true, error: null });
-      const household = await getHouseholdService(userId);
+      set({ isLoading: true, error: null, loadError: null, loadedUserId: null });
+      const household = await withTimeout(getHouseholdService(userId));
       
       if (household) {
         // 世帯が見つかった場合、メンバー情報も取得
-        const members = await getHouseholdMembersService(household.id);
-        set({ household, members, isLoading: false });
+        const members = await withTimeout(getHouseholdMembersService(household.id));
+        if (request !== householdRequest) return;
+        set({ household, members, isLoading: false, loadedUserId: userId });
       } else {
-        set({ household: null, members: [], isLoading: false });
+        if (request !== householdRequest) return;
+        set({ household: null, members: [], isLoading: false, loadedUserId: userId });
       }
     } catch (error) {
+      if (request !== householdRequest) return;
       console.error('世帯読み込みエラー:', error);
       set({
+        loadError: error instanceof Error ? error.message : '世帯情報の読み込みに失敗しました',
         error: error instanceof Error ? error.message : '世帯情報の読み込みに失敗しました',
         isLoading: false,
       });
@@ -165,12 +177,16 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
   /**
    * ストアをリセット
    */
-  reset: () =>
+  reset: () => {
+    householdRequest++;
     set({
+      loadedUserId: null,
+      loadError: null,
       household: null,
       members: [],
       joinCode: null,
       isLoading: false,
       error: null,
-    }),
+    });
+  },
 }));

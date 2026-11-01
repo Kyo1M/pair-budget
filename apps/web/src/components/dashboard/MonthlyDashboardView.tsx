@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { LoadError } from '@/components/ui/LoadError';
 import { VariableExpenseReminderBanner } from '@/components/dashboard/VariableExpenseReminderBanner';
 import { IncomeReminderBanner } from '@/components/dashboard/IncomeReminderBanner';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
@@ -7,6 +8,10 @@ import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 
 interface MonthlyDashboardViewProps {
+  monthlyError: string | null;
+  onRetryMonthly: () => void;
+  balanceError: string | null;
+  onRetryBalances: () => void;
   variableReminders: ComponentProps<typeof VariableExpenseReminderBanner>['reminders'];
   incomeReminders: ComponentProps<typeof IncomeReminderBanner>['reminders'];
   members: ComponentProps<typeof VariableExpenseReminderBanner>['members'];
@@ -42,31 +47,35 @@ export function MonthlyDashboardView(props: MonthlyDashboardViewProps) {
         onRegister={props.onRegisterIncomeReminder}
         onDismiss={props.onDismissIncomeReminder}
       />
-      <SummaryCards
+      {props.monthlyError ? (
+        <LoadError title="この月の取引と集計を取得できませんでした" onRetry={props.onRetryMonthly} />
+      ) : <SummaryCards
         summary={props.summary}
         isLoading={props.summaryLoading || props.transactionsLoading}
-      />
+      />}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <MonthlyCategoryBreakdown
+        {!props.monthlyError && <MonthlyCategoryBreakdown
           transactions={props.transactions}
           isLoading={props.transactionsLoading}
           onEdit={props.onEditTransaction}
           onDelete={props.onDeleteTransaction}
-        />
-        <BalanceCard
+        />}
+        {props.balanceError ? (
+          <LoadError title="立替残高を取得できませんでした" onRetry={props.onRetryBalances} />
+        ) : <BalanceCard
           balances={props.balances}
           currentUserId={props.currentUserId}
           isLoading={props.balancesLoading}
           highlights={props.balanceHighlights}
           onSelectSettlementTarget={props.onSelectSettlementTarget}
-        />
+        />}
       </div>
-      <RecentTransactions
+      {!props.monthlyError && <RecentTransactions
         transactions={props.transactions}
         isLoading={props.transactionsLoading}
         onEdit={props.onEditTransaction}
         onDelete={props.onDeleteTransaction}
-      />
+      />}
     </>
   );
 }
